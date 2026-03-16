@@ -66,7 +66,7 @@ def analyze_product(db: Session, product: Product, sources: list[str]) -> Produc
 
     extracted["crawl"] = crawled
     if combined_text:
-        product.embedding = generate_embedding(f\"{product.name} {combined_text}\")
+        product.embedding = generate_embedding(f"{product.name} {combined_text}")
 
     if product.extracted_data:
         merged = {**product.extracted_data, **extracted}

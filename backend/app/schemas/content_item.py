@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from app.models.enums import ContentType
 from app.schemas.common import IDSchema, ORMBase, TenantSchema, TimestampSchema
@@ -19,7 +19,11 @@ class ContentItemBase(ORMBase):
     long_version: str | None = None
     technical_version: str | None = None
     sales_version: str | None = None
-    meta: dict | None = Field(default=None, validation_alias="metadata", serialization_alias="metadata")
+    meta: dict | None = Field(
+        default=None,
+        validation_alias=AliasChoices("meta", "metadata"),
+        serialization_alias="metadata",
+    )
 
 
 class ContentItemCreate(ContentItemBase):
@@ -34,7 +38,11 @@ class ContentItemUpdate(ORMBase):
     long_version: str | None = None
     technical_version: str | None = None
     sales_version: str | None = None
-    meta: dict | None = Field(default=None, validation_alias="metadata", serialization_alias="metadata")
+    meta: dict | None = Field(
+        default=None,
+        validation_alias=AliasChoices("meta", "metadata"),
+        serialization_alias="metadata",
+    )
 
 
 class ContentItemRead(ContentItemBase, TenantSchema, IDSchema, TimestampSchema):

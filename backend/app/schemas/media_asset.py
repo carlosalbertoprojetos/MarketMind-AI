@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 
 from app.models.enums import MediaType
 from app.schemas.common import IDSchema, ORMBase, TenantSchema, TimestampSchema
@@ -11,7 +11,11 @@ class MediaAssetBase(ORMBase):
     asset_type: MediaType
     url: str | None = None
     storage_key: str | None = None
-    meta: dict | None = Field(default=None, validation_alias="metadata", serialization_alias="metadata")
+    meta: dict | None = Field(
+        default=None,
+        validation_alias=AliasChoices("meta", "metadata"),
+        serialization_alias="metadata",
+    )
 
 
 class MediaAssetCreate(MediaAssetBase):
@@ -21,7 +25,11 @@ class MediaAssetCreate(MediaAssetBase):
 class MediaAssetUpdate(ORMBase):
     url: str | None = None
     storage_key: str | None = None
-    meta: dict | None = Field(default=None, validation_alias="metadata", serialization_alias="metadata")
+    meta: dict | None = Field(
+        default=None,
+        validation_alias=AliasChoices("meta", "metadata"),
+        serialization_alias="metadata",
+    )
 
 
 class MediaAssetRead(MediaAssetBase, TenantSchema, IDSchema, TimestampSchema):

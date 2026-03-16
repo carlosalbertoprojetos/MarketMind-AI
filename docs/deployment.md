@@ -8,6 +8,13 @@
 2. Suba os containers:
    - `docker-compose up --build`
 
+## Execucao local (sem Docker)
+- Start: `scripts/start-local.ps1`
+- Stop: `scripts/stop-local.ps1`
+- Smoke test: `scripts/smoke-local.ps1`
+- Smoke auth (requer Postgres local): `scripts/smoke-auth.ps1`
+- Credenciais: veja `docs/credentials.md`
+
 ## Migrations
 1. Gere a revisao inicial:
    - `alembic revision --autogenerate -m "initial"`
@@ -24,9 +31,9 @@
 - Redis: `localhost:6379`
 
 ## Observacoes
-- Migrations ainda nao foram configuradas (Alembic recomendado).
+- Alembic esta configurado.
 - Seeds iniciais podem ser adicionadas para demo.
- - Chaves de API devem ficar no servidor (nunca no frontend).
+- Chaves de API devem ficar no servidor (nunca no frontend).
 
 ## Producao
 - Recomenda-se separar as imagens e usar secrets para `SECRET_KEY` e credenciais S3.

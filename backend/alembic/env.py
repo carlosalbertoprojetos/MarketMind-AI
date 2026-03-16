@@ -21,7 +21,7 @@ def get_url() -> str:
     return os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
 
-config.set_main_option("sqlalchemy.url", get_url())
+config.set_main_option("sqlalchemy.url", get_url().replace("%", "%%"))
 
 
 target_metadata = Base.metadata
