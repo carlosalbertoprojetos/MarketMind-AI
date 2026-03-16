@@ -42,7 +42,7 @@ def generate_content(
         technical_version=f"Detalhe tecnico: {product.name} automatiza fluxos de marketing.",
         sales_version=f"Versao comercial: "
         f"{product.name} acelera resultados com IA e dados.",
-        metadata={"persona": persona_label},
+        meta={"persona": persona_label},
     )
     item.embedding = generate_embedding(f"{item.title} {item.brief}")
     db.add(item)

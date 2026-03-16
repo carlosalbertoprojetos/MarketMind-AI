@@ -52,7 +52,7 @@ def plan_campaign(
             content_type=ContentType.linkedin_post,
             title=f"{stage.value.capitalize()} - {product.name}",
             brief=f"Etapa {stage.value} da campanha {name}.",
-            metadata={"stage": stage.value},
+            meta={"stage": stage.value},
         )
         db.add(item)
         items.append(item)

@@ -1,24 +1,30 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import random
 
 from app.core.config import settings
 from app.services.openai_client import get_openai_client
 
+logger = logging.getLogger(__name__)
+
 
 def generate_embedding(text: str, dims: int | None = None, use_openai: bool = True) -> list[float]:
     if use_openai and settings.OPENAI_API_KEY:
-        client = get_openai_client()
-        payload = {
-            "model": settings.OPENAI_EMBEDDING_MODEL,
-            "input": text,
-            "encoding_format": "float",
-        }
-        if dims or settings.OPENAI_EMBEDDING_DIM:
-            payload["dimensions"] = dims or settings.OPENAI_EMBEDDING_DIM
-        response = client.embeddings.create(**payload)
-        return response.data[0].embedding
+        try:
+            client = get_openai_client()
+            payload = {
+                "model": settings.OPENAI_EMBEDDING_MODEL,
+                "input": text,
+                "encoding_format": "float",
+            }
+            if dims or settings.OPENAI_EMBEDDING_DIM:
+                payload["dimensions"] = dims or settings.OPENAI_EMBEDDING_DIM
+            response = client.embeddings.create(**payload)
+            return response.data[0].embedding
+        except Exception as exc:  # pragma: no cover - network errors vary
+            logger.warning("OpenAI embedding failed, using fallback: %s", exc)
 
     dims = dims or settings.OPENAI_EMBEDDING_DIM
     seed = int(hashlib.sha256(text.encode("utf-8")).hexdigest(), 16) % (2**32)

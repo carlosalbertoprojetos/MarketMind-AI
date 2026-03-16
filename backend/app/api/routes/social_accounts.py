@@ -35,7 +35,7 @@ def create_social_account(
         handle=payload.handle,
         external_id=payload.external_id,
         status=payload.status,
-        metadata=payload.metadata,
+        meta=payload.meta,
         access_token_encrypted=payload.access_token,
         refresh_token_encrypted=payload.refresh_token,
         organization_id=current_user.organization_id,

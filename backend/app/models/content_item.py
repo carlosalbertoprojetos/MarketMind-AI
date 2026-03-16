@@ -25,7 +25,7 @@ class ContentItem(Base, UUIDMixin, TimestampMixin, TenantMixin):
     technical_version: Mapped[str | None] = mapped_column(Text)
     sales_version: Mapped[str | None] = mapped_column(Text)
 
-    metadata: Mapped[dict | None] = mapped_column(JSONB)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSONB)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
 
     campaign = relationship("Campaign", back_populates="content_items")

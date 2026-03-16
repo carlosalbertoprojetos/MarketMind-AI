@@ -15,6 +15,6 @@ class AnalyticsEvent(Base, UUIDMixin, TimestampMixin, TenantMixin):
     post_id: Mapped[str | None] = mapped_column(UUID(as_uuid=True), ForeignKey("posts.id"))
     event_type: Mapped[AnalyticsEventType] = mapped_column(Enum(AnalyticsEventType))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    metadata: Mapped[dict | None] = mapped_column(JSONB)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
     post = relationship("Post", back_populates="analytics_events")

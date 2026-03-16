@@ -16,6 +16,6 @@ class MediaAsset(Base, UUIDMixin, TimestampMixin, TenantMixin):
     asset_type: Mapped[MediaType] = mapped_column(Enum(MediaType), nullable=False)
     url: Mapped[str | None] = mapped_column(String(500))
     storage_key: Mapped[str | None] = mapped_column(String(500))
-    metadata: Mapped[dict | None] = mapped_column(JSONB)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
     content_item = relationship("ContentItem", back_populates="media_assets")

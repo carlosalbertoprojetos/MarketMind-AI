@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from pydantic import Field
+
 from app.models.enums import SocialPlatform
 from app.schemas.common import IDSchema, ORMBase, TenantSchema, TimestampSchema
 
@@ -10,7 +12,7 @@ class SocialAccountBase(ORMBase):
     handle: str | None = None
     external_id: str | None = None
     status: str = "active"
-    metadata: dict | None = None
+    meta: dict | None = Field(default=None, validation_alias="metadata", serialization_alias="metadata")
 
 
 class SocialAccountCreate(SocialAccountBase):
@@ -21,7 +23,7 @@ class SocialAccountCreate(SocialAccountBase):
 class SocialAccountUpdate(ORMBase):
     handle: str | None = None
     status: str | None = None
-    metadata: dict | None = None
+    meta: dict | None = Field(default=None, validation_alias="metadata", serialization_alias="metadata")
 
 
 class SocialAccountRead(SocialAccountBase, TenantSchema, IDSchema, TimestampSchema):

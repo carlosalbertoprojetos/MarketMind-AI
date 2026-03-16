@@ -17,6 +17,6 @@ class SocialAccount(Base, UUIDMixin, TimestampMixin, TenantMixin):
     access_token_encrypted: Mapped[str | None] = mapped_column(String(2048))
     refresh_token_encrypted: Mapped[str | None] = mapped_column(String(2048))
     status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)
-    metadata: Mapped[dict | None] = mapped_column(JSONB)
+    meta: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
     posts = relationship("Post", back_populates="social_account")
