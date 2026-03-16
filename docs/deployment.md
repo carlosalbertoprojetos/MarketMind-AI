@@ -1,0 +1,39 @@
+# Deployment
+
+## Prerequisitos
+- Docker + Docker Compose
+
+## Subir ambiente (manual)
+1. Ajuste as variaveis de ambiente em `docker-compose.yml` se necessario.
+2. Suba os containers:
+   - `docker-compose up --build`
+
+## Migrations
+1. Gere a revisao inicial:
+   - `alembic revision --autogenerate -m "initial"`
+2. Aplique as migrations:
+   - `alembic upgrade head`
+
+## Seed (opcional)
+- `python -m app.scripts.seed_demo`
+
+## Servicos
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:3000`
+- Postgres: `localhost:5432`
+- Redis: `localhost:6379`
+
+## Observacoes
+- Migrations ainda nao foram configuradas (Alembic recomendado).
+- Seeds iniciais podem ser adicionadas para demo.
+ - Chaves de API devem ficar no servidor (nunca no frontend).
+
+## Producao
+- Recomenda-se separar as imagens e usar secrets para `SECRET_KEY` e credenciais S3.
+- Configure TLS, CORS e rate limits.
+
+## OpenAI Key
+- Defina `OPENAI_API_KEY` no ambiente do backend/worker (ex.: `docker-compose.yml`).
+- Opcional: `OPENAI_ORG_ID` e `OPENAI_PROJECT_ID` quando usar multiplas orgs/projetos.
+ - Embeddings: `OPENAI_EMBEDDING_MODEL` (default `text-embedding-3-small`) e `OPENAI_EMBEDDING_DIM` (default `1536`).
+ - Se mudar para um modelo com dimensao diferente, atualize as colunas `embedding` e as migrations do banco.
