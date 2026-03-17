@@ -7,11 +7,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#0b0b0f",
-        haze: "#e7e3da",
-        ember: "#e05a3b",
-        moss: "#3c6f5d",
-        smoke: "#15161d"
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        haze: "rgb(var(--color-haze) / <alpha-value>)",
+        ember: "rgb(var(--color-accent) / <alpha-value>)",
+        moss: "rgb(var(--color-accent-2) / <alpha-value>)",
+        smoke: "rgb(var(--color-contrast) / <alpha-value>)",
+        surface: "rgb(var(--color-surface) / <alpha-value>)",
+        "surface-2": "rgb(var(--color-surface-2) / <alpha-value>)",
+        "surface-3": "rgb(var(--color-surface-3) / <alpha-value>)",
+        border: "rgb(var(--color-border) / <alpha-value>)",
+        "border-strong": "rgb(var(--color-border-strong) / <alpha-value>)",
+        muted: "rgb(var(--color-muted) / <alpha-value>)",
+        "muted-2": "rgb(var(--color-muted-2) / <alpha-value>)",
+        success: "rgb(var(--color-success) / <alpha-value>)",
+        warning: "rgb(var(--color-warning) / <alpha-value>)",
+        "on-accent": "rgb(var(--color-on-accent) / <alpha-value>)"
       },
       fontFamily: {
         display: ["'Space Grotesk'", "ui-sans-serif", "system-ui"],

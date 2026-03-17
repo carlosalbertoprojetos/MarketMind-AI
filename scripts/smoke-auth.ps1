@@ -4,7 +4,7 @@ if (-not (Test-Path $localDir)) { New-Item -ItemType Directory -Path $localDir |
 $logOut = Join-Path $localDir "backend-smoke.out.log"
 $logErr = Join-Path $localDir "backend-smoke.err.log"
 
-$baseUrl = "http://127.0.0.1:8000/api/v1"
+$baseUrl = "http://127.0.0.1:8003/api/v1"
 $backendProcess = $null
 $startedBackend = $false
 
@@ -38,7 +38,7 @@ if (-not $health) {
     exit 0
   }
 
-  $backendProcess = Start-Process -FilePath "py" -ArgumentList "-3","-m","uvicorn","app.main:app","--host","127.0.0.1","--port","8000" -WorkingDirectory "backend" -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+  $backendProcess = Start-Process -FilePath "py" -ArgumentList "-3.10","-m","uvicorn","app.main:app","--host","127.0.0.1","--port","8003" -WorkingDirectory "backend" -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
   $startedBackend = $true
   Start-Sleep -Seconds 6
 }

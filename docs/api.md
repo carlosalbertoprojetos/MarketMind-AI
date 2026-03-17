@@ -6,6 +6,8 @@ Base URL: `/api/v1`
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
+- `POST /auth/forgot-password`
+- `POST /auth/reset-password`
 
 ### Headers
 - `Authorization: Bearer <access_token>`
@@ -36,6 +38,9 @@ Base URL: `/api/v1`
 - `POST /ai/content/generate`
 - `POST /ai/campaign/plan`
 - `GET /ai/analytics/summary`
+- `POST /ai/pipeline/run`
+- `GET /ai/pipeline/runs?product_id=<uuid>`
+- `GET /ai/pipeline/runs/{run_id}`
 
 ## Examples
 
@@ -45,6 +50,22 @@ POST /api/v1/auth/login
 {
   "email": "admin@marketmind.ai",
   "password": "secret"
+}
+```
+
+### Reset de senha (dev)
+```json
+POST /api/v1/auth/forgot-password
+{
+  "email": "admin@marketmind.ai"
+}
+```
+
+```json
+POST /api/v1/auth/reset-password
+{
+  "token": "<token>",
+  "new_password": "nova-senha"
 }
 ```
 

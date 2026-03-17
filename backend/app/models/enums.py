@@ -1,4 +1,10 @@
-from enum import StrEnum
+try:
+    from enum import StrEnum  # Python 3.11+
+except ImportError:  # Python 3.10 compatibility
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
 
 
 class Role(StrEnum):
@@ -76,3 +82,10 @@ class IntegrationStatus(StrEnum):
     active = "active"
     disabled = "disabled"
     error = "error"
+
+
+class AiRunStatus(StrEnum):
+    pending = "pending"
+    running = "running"
+    completed = "completed"
+    failed = "failed"

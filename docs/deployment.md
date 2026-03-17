@@ -2,6 +2,7 @@
 
 ## Prerequisitos
 - Docker + Docker Compose
+- Python 3.10 (para execucao local sem Docker)
 
 ## Subir ambiente (manual)
 1. Ajuste as variaveis de ambiente em `docker-compose.yml` se necessario.
@@ -22,10 +23,11 @@
    - `alembic upgrade head`
 
 ## Seed (opcional)
-- `python -m app.scripts.seed_demo`
+- `py -3.10 -m app.scripts.seed_demo`
+- `scripts/seed-demo.ps1`
 
 ## Servicos
-- Backend: `http://localhost:8000`
+- Backend: `http://localhost:8003`
 - Frontend: `http://localhost:3000`
 - Postgres: `localhost:5432`
 - Redis: `localhost:6379`
@@ -38,6 +40,7 @@
 ## Producao
 - Recomenda-se separar as imagens e usar secrets para `SECRET_KEY` e credenciais S3.
 - Configure TLS, CORS e rate limits.
+- Sempre rode `alembic upgrade head` apos novas migrations (ex.: reset de senha).
 
 ## OpenAI Key
 - Defina `OPENAI_API_KEY` no ambiente do backend/worker (ex.: `docker-compose.yml`).

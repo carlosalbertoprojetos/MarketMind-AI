@@ -210,3 +210,5 @@ __marimo__/
 node_modules/
 frontend/node_modules/
 .next/
+playwright-report/
+test-results/

@@ -1,6 +1,9 @@
 1:"$Sreact.fragment"
-2:I[58630,["/_next/static/chunks/c758b5db44bdba7e.js","/_next/static/chunks/6941cb362bda967d.js"],"default"]
-3:I[97367,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/a2dfb6fc5208ab9b.js"],"OutletBoundary"]
-4:"$Sreact.suspense"
-0:{"buildId":"jxxx8Ja-LclP0k1peba9I","rsc":["$","$1","c",{"children":[["$","div",null,{"className":"space-y-6","children":[["$","header",null,{"className":"card p-8","children":[["$","h1",null,{"className":"section-title text-2xl font-semibold","children":"Analytics"}],["$","p",null,{"className":"mt-2 text-sm text-gray-600","children":"Metricas de engajamento, CTR e crescimento por canal."}]]}],["$","$L2",null,{}]]}],[["$","script","script-0",{"src":"/_next/static/chunks/6941cb362bda967d.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"loading":null,"isPartial":false}
-5:null
+2:I[47257,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/a2dfb6fc5208ab9b.js"],"ClientPageRoot"]
+3:I[96673,["/_next/static/chunks/a4d207a7cb20a42c.js","/_next/static/chunks/6cdf409f7ab62d6a.js","/_next/static/chunks/fce2e8e65cc89fad.js"],"default"]
+6:I[97367,["/_next/static/chunks/ff1a16fafef87110.js","/_next/static/chunks/a2dfb6fc5208ab9b.js"],"OutletBoundary"]
+7:"$Sreact.suspense"
+0:{"buildId":"65JqDVhKokIf2f65CdvYz","rsc":["$","$1","c",{"children":[["$","$L2",null,{"Component":"$3","serverProvidedParams":{"searchParams":{},"params":{},"promises":["$@4","$@5"]}}],[["$","script","script-0",{"src":"/_next/static/chunks/fce2e8e65cc89fad.js","async":true}]],["$","$L6",null,{"children":["$","$7",null,{"name":"Next.MetadataOutlet","children":"$@8"}]}]]}],"loading":null,"isPartial":false}
+4:{}
+5:"$0:rsc:props:children:0:props:serverProvidedParams:params"
+8:null

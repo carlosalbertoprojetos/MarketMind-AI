@@ -1,0 +1,239 @@
+{
+  "app": {
+    "name": "MarketMind-IA",
+    "tagline": "Content Intelligence OS",
+    "autonomousMarketing": "Inteligencia Autonoma de Marketing",
+    "controlRoom": "Sala de Controle MarketMind"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "campaigns": "Gestor de Campanhas",
+    "content": "Estudio de Conteudo",
+    "generator": "AI Generator",
+    "calendar": "Calendario",
+    "analytics": "Analiticos"
+  },
+  "sidebar": {
+    "status": "Operacao autonoma ativa",
+    "workspace": "Workspace: {name}",
+    "plan": "Plano: {plan}",
+    "settings": "Configuracoes"
+  },
+  "topbar": {
+    "search": "Buscar",
+    "searchPlaceholder": "Buscar insights",
+    "syncNow": "Sync agora",
+    "newCampaign": "Nova campanha",
+    "roleAdmin": "Admin",
+    "roleUser": "Usuario",
+    "userEmail": "admin@marketmind.ai",
+    "logout": "Sair"
+  },
+  "dashboard": {
+    "title": "Dashboard de Inteligencia Autonoma",
+    "subtitle": "Visao geral das campanhas, performance e operacoes da plataforma MarketMind-IA.",
+    "stats": {
+      "activeCampaigns": "Campanhas ativas",
+      "activeCampaignsHelper": "+2 esta semana",
+      "publishedContent": "Conteudos publicados",
+      "publishedContentHelper": "CTR medio 4.2%",
+      "attributedRevenue": "Crescimento",
+      "attributedRevenueHelper": "Ultimos 30 dias"
+    },
+    "insightsTitle": "AI Insights",
+    "insights": {
+      "one": "Engajamento medio: {engagement}%",
+      "two": "CTR medio: {ctr}%",
+      "three": "Crescimento semanal: {growth}%"
+    }
+  },
+  "campaigns": {
+    "title": "Gestor de Campanhas",
+    "subtitle": "Orquestre campanhas por estagio: consciencia, educacao, solucao, prova e conversao."
+  },
+  "campaignBoard": {
+    "title": "Quadro de Campanhas",
+    "newCampaign": "Nova campanha",
+    "creating": "Criando...",
+    "items": "{count} itens",
+    "loading": "Carregando...",
+    "empty": "Sem campanhas",
+    "missingPrerequisites": "Crie um workspace e um produto antes de criar campanhas.",
+    "defaultObjective": "Acelerar pipeline com conteudos de awareness.",
+    "stages": {
+      "awareness": "Consciencia",
+      "education": "Educacao",
+      "solution": "Solucao",
+      "proof": "Prova",
+      "conversion": "Conversao"
+    }
+  },
+  "contentStudio": {
+    "title": "Estudio de Conteudo",
+    "subtitle": "Central de criacao, derivacao e refinamento de conteudo multiformato."
+  },
+  "contentEditor": {
+    "title": "Editor de Conteudo",
+    "subtitle": "Edite, derive e aprove versoes em um so lugar.",
+    "generateVariations": "Gerar novas variacoes",
+    "generating": "Gerando...",
+    "chips": [
+      "B2B SaaS",
+      "Alto LTV",
+      "Executivos",
+      "Tom consultivo",
+      "CTA suave"
+    ],
+    "basePrompt": "Prompt base",
+    "basePromptText": "Explique como o produto reduz CAC para SaaS B2B em ate 30%.",
+    "product": "Produto",
+    "contentType": "Tipo de conteudo",
+    "noProducts": "Crie um produto antes de gerar conteudo.",
+    "contentTypes": {
+      "linkedin_post": "Post LinkedIn",
+      "instagram_post": "Post Instagram",
+      "x_thread": "Thread X",
+      "youtube_script": "Script YouTube",
+      "carousel": "Carrossel",
+      "email_campaign": "Email Campaign"
+    },
+    "preview": "Preview",
+    "variants": [
+      "Curto",
+      "Medio",
+      "Longo",
+      "Tecnico",
+      "Vendas"
+    ],
+    "variantLabel": "{variant} versao",
+    "variantText": "Texto gerado em modo {variant} para social media e campanhas."
+  },
+  "calendar": {
+    "title": "Calendario",
+    "subtitle": "Agenda inteligente com visao semanal e mensal. Drag and drop pronto para evoluir.",
+    "weeklyTitle": "Agenda Semanal",
+    "week": "Semana",
+    "month": "Mes",
+    "daysShort": ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"],
+    "items": ["Post LinkedIn", "Reels IG", "Email nurture"]
+  },
+  "analytics": {
+    "title": "Analiticos",
+    "subtitle": "Metricas de engajamento, CTR e crescimento por canal.",
+    "weeklyTitle": "Performance semanal",
+    "weeklySubtitle": "Engajamento e CTR",
+    "cards": {
+      "engagement": "Engajamento medio",
+      "ctr": "CTR medio",
+      "growth": "Crescimento"
+    }
+  },
+  "generator": {
+    "title": "Gerador IA",
+    "subtitle": "Dispare geracoes por agente: produto, mercado, audiencia, narrativa e campanha.",
+    "startFlow": "Iniciar fluxo",
+    "cards": {
+      "product": {
+        "title": "Agente de Produto",
+        "text": "Analisa URLs, landing pages e docs para extrair proposta de valor."
+      },
+      "market": {
+        "title": "Agente de Mercado",
+        "text": "Mapeia concorrentes e posicionamento competitivo em tempo real."
+      },
+      "audience": {
+        "title": "Agente de Audiencia",
+        "text": "Gera personas com dores, objetivos e linguagem de comunicacao."
+      },
+      "narrative": {
+        "title": "Agente de Narrativa",
+        "text": "Estrutura narrativas com problem, diagnosis, solution e CTA."
+      }
+    }
+  },
+  "contentList": {
+    "title": "Conteudos gerados",
+    "items": "{count} itens",
+    "loading": "Carregando conteudos...",
+    "empty": "Nenhum conteudo encontrado",
+    "untitled": "Conteudo sem titulo"
+  },
+  "productSetup": {
+    "title": "Configurar produto",
+    "count": "{count} produtos",
+    "workspace": "Workspace",
+    "brand": "Marca",
+    "none": "Nao configurado",
+    "workspacePlaceholder": "Nome do workspace",
+    "brandPlaceholder": "Nome da marca",
+    "productPlaceholder": "Nome do produto",
+    "websitePlaceholder": "Website (opcional)",
+    "create": "Criar produto",
+    "creating": "Criando...",
+    "created": "Produto criado com sucesso.",
+    "missingWorkspace": "Informe o nome do workspace.",
+    "missingBrand": "Informe o nome da marca.",
+    "missingProduct": "Informe o nome do produto."
+  },
+  "analysis": {
+    "title": "Analise de produto por URL",
+    "subtitle": "Cole URLs para extrair proposta e gerar marketing.",
+    "productLabel": "Produto",
+    "contentType": "Tipo de conteudo",
+    "urlsLabel": "URLs para analise",
+    "urlsPlaceholder": "https://site.com/landing\nhttps://site.com/docs",
+    "analyze": "Analisar URLs",
+    "analyzing": "Analisando...",
+    "generate": "Gerar conteudo",
+    "runPipeline": "Executar pipeline completo",
+    "pipelineRunning": "Executando pipeline...",
+    "pipelineTitle": "Pipeline IA",
+    "stepAnalyze": "Analise",
+    "stepAudience": "Personas",
+    "stepNarrative": "Narrativa",
+    "stepContent": "Conteudo",
+    "personasTitle": "Personas geradas",
+    "narrativeTitle": "Narrativa",
+    "contentTitle": "Conteudo",
+    "narrativeEmpty": "Sem narrativa gerada.",
+    "contentEmpty": "Sem conteudo gerado.",
+    "contentGenerated": "Conteudo gerado (IDs)",
+    "runsTitle": "Historico de execucoes",
+    "resultsTitle": "Resultado da analise",
+    "useBrief": "Usar briefing",
+    "noUrls": "Informe ao menos uma URL.",
+    "noBrief": "Gere a analise antes de criar conteudo.",
+    "defaultBrief": "Gerar conteudo com base na analise automatica."
+  },
+  "auth": {
+    "heading": "Acesso seguro",
+    "title": "Entrar no painel",
+    "registerTitle": "Criar conta",
+    "resetTitle": "Recuperar acesso",
+    "subtitle": "Use seu email e senha para acessar o sistema.",
+    "email": "Email",
+    "password": "Senha",
+    "cta": "Entrar",
+    "registerCta": "Criar conta",
+    "resetCta": "Enviar link",
+    "resetConfirmCta": "Atualizar senha",
+    "loading": "Validando...",
+    "createAccount": "Criar conta",
+    "forgotPassword": "Esqueci minha senha",
+    "backToLogin": "Voltar para login",
+    "orgName": "Nome da organizacao",
+    "orgSlug": "Slug da organizacao",
+    "fullName": "Nome completo",
+    "resetToken": "Token de reset",
+    "newPassword": "Nova senha",
+    "resetSent": "Se o email existir, um token foi gerado.",
+    "resetSuccess": "Senha atualizada. Entre novamente."
+  },
+  "controls": {
+    "themeToggle": "Alternar tema",
+    "languageToggleToEn": "Mudar para ingles",
+    "languageToggleToPt": "Mudar para portugues",
+    "flagUsAlt": "Bandeira dos Estados Unidos",
+    "flagBrAlt": "Bandeira do Brasil"
+  }
+}

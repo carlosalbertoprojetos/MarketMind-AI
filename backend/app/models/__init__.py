@@ -1,3 +1,4 @@
+from app.models.ai_run import AiRun
 from app.models.analytics_event import AnalyticsEvent
 from app.models.brand import Brand
 from app.models.campaign import Campaign
@@ -7,6 +8,7 @@ from app.models.integration import Integration
 from app.models.media_asset import MediaAsset
 from app.models.membership import Membership
 from app.models.organization import Organization
+from app.models.password_reset_token import PasswordResetToken
 from app.models.persona import Persona
 from app.models.post import Post
 from app.models.product import Product
@@ -17,6 +19,7 @@ from app.models.workspace import Workspace
 
 __all__ = [
     "AnalyticsEvent",
+    "AiRun",
     "Brand",
     "Campaign",
     "Competitor",
@@ -25,6 +28,7 @@ __all__ = [
     "MediaAsset",
     "Membership",
     "Organization",
+    "PasswordResetToken",
     "Persona",
     "Post",
     "Product",

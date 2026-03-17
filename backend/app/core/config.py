@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "MarketMind-IA"
     API_V1_STR: str = "/api/v1"
+    ENV: str = "development"
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     DATABASE_URL: str = "postgresql+psycopg://marketmind:marketmind@postgres:5432/marketmind"
     REDIS_URL: str = "redis://redis:6379/0"
@@ -23,8 +25,14 @@ class Settings(BaseSettings):
     OPENAI_PROJECT_ID: str | None = None
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
     OPENAI_EMBEDDING_DIM: int = 1536
+    OPENAI_TEXT_MODEL: str = "gpt-4o-mini"
+    OPENAI_TEXT_TEMPERATURE: float = 0.7
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 30
+
+    model_config = SettingsConfigDict(
+        env_file=(".env", ".env.local"), case_sensitive=True, extra="ignore"
+    )
 
 
 settings = Settings()

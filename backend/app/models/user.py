@@ -21,3 +21,6 @@ class User(Base, UUIDMixin, TimestampMixin):
 
     organization = relationship("Organization", back_populates="users")
     memberships = relationship("Membership", back_populates="user")
+    password_reset_tokens = relationship(
+        "PasswordResetToken", back_populates="user", cascade="all, delete-orphan"
+    )

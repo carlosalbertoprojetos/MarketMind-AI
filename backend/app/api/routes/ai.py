@@ -28,8 +28,12 @@ from app.schemas.ai import (
     ProductAnalysisRequest,
     ProductAnalysisResponse,
 )
+from app.schemas.ai_run import AiRunRead, PipelineRunRequest, PipelineRunResponse
 from app.schemas.content_item import ContentItemRead
 from app.schemas.persona import PersonaRead
+from app.services.pipeline_engine import run_pipeline
+from app.models.ai_run import AiRun
+from app.utils.db import get_object_or_404
 from app.services.validators import (
     get_persona_or_404,
     get_product_or_404,
@@ -132,3 +136,53 @@ def analytics_summary(
     return AnalyticsSummaryResponse(
         engagement_rate=summary.engagement_rate, ctr=summary.ctr, growth=summary.growth
     )
+
+
+@router.post("/pipeline/run", response_model=PipelineRunResponse)
+def run_full_pipeline(
+    payload: PipelineRunRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+) -> PipelineRunResponse:
+    product = get_product_or_404(db, payload.product_id, current_user.organization_id)
+    result = run_pipeline(
+        db,
+        product,
+        payload.sources,
+        payload.content_types,
+        payload.persona_count,
+        payload.brief,
+    )
+    return PipelineRunResponse(
+        run_id=result.run.id,
+        status=result.run.status,
+        content_item_ids=[item_id for item_id in result.content_item_ids],
+        steps=result.steps,
+        output=result.output,
+    )
+
+
+@router.get("/pipeline/runs", response_model=list[AiRunRead])
+def list_pipeline_runs(
+    product_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+) -> list[AiRunRead]:
+    product = get_product_or_404(db, product_id, current_user.organization_id)
+    runs = (
+        db.query(AiRun)
+        .filter(AiRun.organization_id == current_user.organization_id, AiRun.product_id == product.id)
+        .order_by(AiRun.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return runs
+
+
+@router.get("/pipeline/runs/{run_id}", response_model=AiRunRead)
+def read_pipeline_run(
+    run_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_active_user),
+) -> AiRunRead:
+    return get_object_or_404(db, AiRun, run_id, current_user.organization_id)

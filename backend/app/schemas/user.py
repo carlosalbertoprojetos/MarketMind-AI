@@ -51,3 +51,17 @@ class RegisterRequest(ORMBase):
     full_name: str | None = None
     email: EmailStr
     password: str
+
+
+class PasswordResetRequest(ORMBase):
+    email: EmailStr
+
+
+class PasswordResetConfirm(ORMBase):
+    token: str
+    new_password: str
+
+
+class PasswordResetResponse(ORMBase):
+    status: str
+    reset_token: str | None = None

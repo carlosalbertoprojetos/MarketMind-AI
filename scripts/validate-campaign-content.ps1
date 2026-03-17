@@ -5,7 +5,7 @@ $logOut = Join-Path $localDir "backend-validate.out.log"
 $logErr = Join-Path $localDir "backend-validate.err.log"
 $ErrorActionPreference = "Stop"
 
-$baseUrl = "http://127.0.0.1:8000/api/v1"
+$baseUrl = "http://127.0.0.1:8003/api/v1"
 $backendProcess = $null
 $startedBackend = $false
 
@@ -27,7 +27,7 @@ function Ensure-Backend {
   $health = $null
   try { $health = (Invoke-WebRequest -UseBasicParsing "$baseUrl/health").StatusCode } catch { $health = $null }
   if (-not $health) {
-    $script:backendProcess = Start-Process -FilePath "py" -ArgumentList "-3","-m","uvicorn","app.main:app","--host","127.0.0.1","--port","8000" -WorkingDirectory (Join-Path $root "backend") -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+    $script:backendProcess = Start-Process -FilePath "py" -ArgumentList "-3.10","-m","uvicorn","app.main:app","--host","127.0.0.1","--port","8003" -WorkingDirectory (Join-Path $root "backend") -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
     $script:startedBackend = $true
     Start-Sleep -Seconds 6
   }
