@@ -1,0 +1,11 @@
+Alembic - migrações do banco MarketingAI
+
+Comandos:
+  alembic revision --autogenerate -m "descrição"   # cria nova revisão
+  alembic upgrade head                            # aplica todas as migrações
+  alembic upgrade +1                               # aplica a próxima
+  alembic downgrade -1                             # reverte uma
+  alembic current                                  # mostra revisão atual
+  alembic history                                 # histórico
+
+A URL do banco é lida de app.database (variável DATABASE_URL no ambiente).

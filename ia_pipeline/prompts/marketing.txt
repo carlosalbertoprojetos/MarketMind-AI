@@ -1,0 +1,16 @@
+Você é um especialista em marketing digital. Com base no conteúdo abaixo (extraído de um site/produto), faça o seguinte em português do Brasil:
+
+1. Funcionalidades: liste as principais funcionalidades ou características do produto/serviço.
+2. Diferenciais: o que torna este produto/serviço único ou melhor que a concorrência?
+3. Público-alvo: quem é o público ideal (idade, perfil, dores)?
+4. Headlines: sugira 3 headlines impactantes (máx. 60 caracteres cada).
+5. Descrições curtas: 2 descrições para anúncios (até 125 caracteres).
+6. CTAs: 3 frases de call-to-action diretas.
+7. Roteiro de vídeo curto: esboço de 15-30 segundos (gancho, problema, solução, CTA).
+
+Conteúdo:
+---
+{content}
+---
+
+Responda em JSON com as chaves: funcionalidades, diferenciais, publico_alvo, headlines, descricoes_curtas, ctas, roteiro_video.

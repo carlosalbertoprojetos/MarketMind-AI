@@ -1,27 +1,20 @@
-from datetime import date
-
-from sqlalchemy import Date, Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.models.base import Base
-from app.models.enums import CampaignStage, CampaignStatus
-from app.models.mixins import TenantMixin, TimestampMixin, UUIDMixin
+"""
+Modelo de campanha: título, conteúdo, plataforma e agendamento.
+"""
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy.sql import func
+from app.database import Base
 
 
-class Campaign(Base, UUIDMixin, TimestampMixin, TenantMixin):
+class Campaign(Base):
     __tablename__ = "campaigns"
 
-    workspace_id: Mapped[str] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id"))
-    product_id: Mapped[str] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"))
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    objective: Mapped[str | None] = mapped_column(Text)
-    stage: Mapped[CampaignStage] = mapped_column(Enum(CampaignStage), nullable=False)
-    status: Mapped[CampaignStatus] = mapped_column(
-        Enum(CampaignStatus), default=CampaignStatus.draft, nullable=False
-    )
-    start_date: Mapped[date | None] = mapped_column(Date)
-    end_date: Mapped[date | None] = mapped_column(Date)
-
-    product = relationship("Product", back_populates="campaigns")
-    content_items = relationship("ContentItem", back_populates="campaign")
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=True)
+    platform = Column(String(64), nullable=True)  # instagram, facebook, linkedin, etc.
+    schedule = Column(DateTime(timezone=True), nullable=True)  # data/hora agendada
+    reminder_sent_at = Column(DateTime(timezone=True), nullable=True)  # último lembrete enviado
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

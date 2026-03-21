@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+@layer base {
+  .dark body {
+    @apply bg-gray-900 text-gray-100;
+  }
+}
+
+/* Dark mode básico para o react-big-calendar (usa CSS próprio). */
+@layer components {
+  .dark .rbc-calendar {
+    background-color: #111827; /* gray-900 */
+    color: #e5e7eb; /* gray-200 */
+  }
+  .dark .rbc-toolbar {
+    background-color: #111827;
+    color: #e5e7eb;
+    border-bottom: 1px solid #374151; /* gray-700 */
+  }
+  .dark .rbc-toolbar button {
+    color: #e5e7eb;
+  }
+  .dark .rbc-btn-group button {
+    border-color: #374151;
+  }
+  .dark .rbc-event,
+  .dark .rbc-event-content {
+    background-color: #2563eb !important; /* primary-600 */
+    border-color: #2563eb !important;
+    color: #ffffff !important;
+  }
+  .dark .rbc-today {
+    background-color: rgba(37, 99, 235, 0.15) !important;
+  }
+  .dark .rbc-off-range-bg {
+    background-color: rgba(55, 65, 81, 0.25) !important;
+  }
+  .dark .rbc-time-view .rbc-time-header-gutter,
+  .dark .rbc-time-view .rbc-time-content,
+  .dark .rbc-time-view .rbc-allday-cell {
+    background-color: #111827 !important;
+  }
+  .dark .rbc-header {
+    color: #e5e7eb;
+  }
+}

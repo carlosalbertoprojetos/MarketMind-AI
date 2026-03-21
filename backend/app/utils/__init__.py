@@ -1,0 +1,1 @@
+# Utilitários (JWT, segurança, helpers)

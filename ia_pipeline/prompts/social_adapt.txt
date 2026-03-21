@@ -1,0 +1,12 @@
+Adapte o texto abaixo para a rede social indicada. Regras:
+- {platform}: {rules}
+- Mantenha tom profissional e persuasivo.
+- Use emojis com moderação quando adequado à rede.
+- Retorne apenas o texto adaptado, sem explicações.
+
+Texto original:
+---
+{text}
+---
+
+Plataforma: {platform}
