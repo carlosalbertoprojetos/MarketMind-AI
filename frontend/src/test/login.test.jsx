@@ -1,22 +1,32 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from './test-utils'
 import Login from '../pages/Login'
 
 const mockLogin = vi.fn()
+const mockGetSession = vi.fn()
+const mockLogoutSession = vi.fn()
 
-vi.mock('../api/client', () => ({
-  login: (...args) => mockLogin(...args),
-}))
+vi.mock('../api/client', async () => {
+  const actual = await vi.importActual('../api/client')
+  return {
+    ...actual,
+    login: (...args) => mockLogin(...args),
+    getSession: (...args) => mockGetSession(...args),
+    logoutSession: (...args) => mockLogoutSession(...args),
+  }
+})
 
 describe('Login', () => {
   beforeEach(() => {
-    localStorage.clear()
     mockLogin.mockReset()
+    mockGetSession.mockReset()
+    mockLogoutSession.mockReset()
+    mockGetSession.mockRejectedValue(new Error('sem sessao'))
   })
 
-  it('renderiza formulário de login', () => {
+  it('renderiza formulario de login', () => {
     renderWithProviders(<Login />, { initialEntries: ['/login'] })
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/senha/i)).toBeInTheDocument()
@@ -40,6 +50,7 @@ describe('Login', () => {
 
   it('chama login com email e senha ao enviar', async () => {
     mockLogin.mockResolvedValueOnce({ access_token: 'fake-token' })
+    mockGetSession.mockResolvedValue({ authenticated: true, user: { id: 1, email: 'user@test.com' } })
     const user = userEvent.setup()
     renderWithProviders(<Login />, { initialEntries: ['/login'] })
     await user.type(screen.getByLabelText(/email/i), 'user@test.com')

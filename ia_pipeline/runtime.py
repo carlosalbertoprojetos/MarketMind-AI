@@ -19,12 +19,17 @@ class PipelineConfig:
     publisher_mode: str = os.environ.get("MARKETINGAI_PUBLISHER_MODE", "mock")
     instagram_access_token: str = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
     instagram_account_id: str = os.environ.get("INSTAGRAM_ACCOUNT_ID", "")
+    facebook_page_access_token: str = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN", "")
+    facebook_page_id: str = os.environ.get("FACEBOOK_PAGE_ID", "")
     linkedin_access_token: str = os.environ.get("LINKEDIN_ACCESS_TOKEN", "")
     linkedin_organization_id: str = os.environ.get("LINKEDIN_ORGANIZATION_ID", "")
     twitter_api_key: str = os.environ.get("TWITTER_API_KEY", "")
     twitter_api_secret: str = os.environ.get("TWITTER_API_SECRET", "")
     twitter_access_token: str = os.environ.get("TWITTER_ACCESS_TOKEN", "")
     twitter_access_token_secret: str = os.environ.get("TWITTER_ACCESS_TOKEN_SECRET", "")
+    tiktok_access_token: str = os.environ.get("TIKTOK_ACCESS_TOKEN", "")
+    tiktok_account_id: str = os.environ.get("TIKTOK_ACCOUNT_ID", "")
+    tiktok_privacy_level: str = os.environ.get("TIKTOK_PRIVACY_LEVEL", "PUBLIC_TO_EVERYONE")
     queue_retry_limit: int = int(os.environ.get("MARKETINGAI_QUEUE_RETRY_LIMIT", "3"))
     queue_retry_delay_seconds: int = int(os.environ.get("MARKETINGAI_QUEUE_RETRY_DELAY_SECONDS", "5"))
     max_crawl_pages: int = int(os.environ.get("MARKETINGAI_MAX_CRAWL_PAGES", "5"))
@@ -88,3 +93,11 @@ def write_json_artifact(relative_path: str, payload: Any) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(_normalize_payload(payload), ensure_ascii=True, indent=2), encoding="utf-8")
     return path
+
+
+def is_production_environment() -> bool:
+    return os.environ.get("MARKETINGAI_ENV", "development").strip().lower() == "production"
+
+
+def mocks_allowed_in_runtime() -> bool:
+    return os.environ.get("MARKETINGAI_ALLOW_MOCKS", "false").strip().lower() in ("1", "true", "yes")

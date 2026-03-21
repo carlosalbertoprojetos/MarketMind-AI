@@ -5,8 +5,6 @@ describe('api client auth handling', () => {
   const originalFetch = global.fetch
 
   beforeEach(() => {
-    localStorage.clear()
-    localStorage.setItem('token', 'expired-token')
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -21,19 +19,17 @@ describe('api client auth handling', () => {
   afterEach(() => {
     global.fetch = originalFetch
     vi.restoreAllMocks()
-    localStorage.clear()
   })
 
-  it('limpa o token salvo e dispara evento quando a API retorna 401', async () => {
+  it('dispara evento quando a API retorna 401', async () => {
     const handler = vi.fn()
     window.addEventListener(AUTH_EXPIRED_EVENT, handler)
 
     await expect(getSummary()).rejects.toThrow(/token invalido ou expirado/i)
 
-    expect(localStorage.getItem('token')).toBeNull()
     expect(handler).toHaveBeenCalledTimes(1)
+    expect(global.fetch).toHaveBeenCalledWith('/api/user/summary', expect.objectContaining({ credentials: 'include' }))
 
     window.removeEventListener(AUTH_EXPIRED_EVENT, handler)
   })
 })
-

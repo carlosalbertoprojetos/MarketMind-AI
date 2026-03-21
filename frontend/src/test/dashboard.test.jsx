@@ -20,6 +20,8 @@ vi.mock('../api/client', () => ({
   exportCampaignZip: vi.fn(),
   login: vi.fn(),
   register: vi.fn(),
+  getSession: vi.fn(),
+  logoutSession: vi.fn(),
 }))
 
 describe('Dashboard', () => {

@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { register as apiRegister } from '../api/client'
+import { login as apiLogin, register as apiRegister } from '../api/client'
 
 export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setToken } = useAuth()
+  const { refreshSession, setToken } = useAuth()
   const { addToast } = useToast()
   const navigate = useNavigate()
 
@@ -19,10 +19,11 @@ export default function Register() {
     setLoading(true)
     try {
       await apiRegister(email, password)
-      // Após registro, fazer login automático (a API não retorna token no register)
-      const { login } = await import('../api/client')
-      const { access_token } = await login(email, password)
-      setToken(access_token)
+      const { access_token } = await apiLogin(email, password)
+      const sessionOk = await refreshSession()
+      if (!sessionOk && access_token) {
+        setToken(access_token)
+      }
       addToast('Conta criada. Bem-vindo!')
       navigate('/')
     } catch (err) {
@@ -62,19 +63,17 @@ export default function Register() {
               className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
             />
           </div>
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-primary-500 text-white py-2 rounded-md hover:bg-primary-600 disabled:opacity-50"
           >
-            {loading ? 'Cadastrando…' : 'Cadastrar'}
+            {loading ? 'Cadastrando...' : 'Cadastrar'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-          Já tem conta? <Link to="/login" className="text-primary-600 dark:text-primary-400 hover:underline">Entrar</Link>
+          Ja tem conta? <Link to="/login" className="text-primary-600 dark:text-primary-400 hover:underline">Entrar</Link>
         </p>
       </div>
     </div>

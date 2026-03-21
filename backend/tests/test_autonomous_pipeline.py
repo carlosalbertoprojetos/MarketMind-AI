@@ -33,14 +33,24 @@ def test_publisher_mock_publish_and_schedule():
     assert single.status == "published"
     assert single.provider == "mock"
 
+    facebook = publish_post("facebook", "Texto para comunidade", image="", hashtags=["#growth"])
+    assert facebook.status == "published"
+    assert facebook.provider == "mock"
+
+    tiktok = publish_post("tiktok", "Video curto com CTA", image="", hashtags=["#tiktok"])
+    assert tiktok.status == "published"
+    assert tiktok.provider == "mock"
+
     batch = schedule_posts(
         [
             {"platform": "instagram", "content": "Post 1", "hashtags": ["#growth"]},
-            {"platform": "x", "content": "Post 2", "hashtags": ["#brand"]},
+            {"platform": "facebook", "content": "Post 2", "hashtags": ["#community"]},
+            {"platform": "tiktok", "content": "Post 3", "hashtags": ["#video"]},
+            {"platform": "x", "content": "Post 4", "hashtags": ["#brand"]},
         ]
     )
     assert batch.status in {"completed", "partial_failure"}
-    assert len(batch.items) == 2
+    assert len(batch.items) == 4
 
 
 def test_autonomous_cycle_returns_improvements():

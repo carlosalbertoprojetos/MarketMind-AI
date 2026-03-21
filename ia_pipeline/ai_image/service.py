@@ -9,7 +9,7 @@ except ImportError:
 
 from ia_pipeline import image_generation
 from ia_pipeline.ai_image.models import ImageAsset
-from ia_pipeline.runtime import ensure_output_path, get_logger, get_pipeline_config, write_json_artifact
+from ia_pipeline.runtime import ensure_output_path, get_logger, get_pipeline_config, is_production_environment, mocks_allowed_in_runtime, write_json_artifact
 
 
 def prompt_builder(content: str, platform: str, style: str = "modern") -> str:
@@ -37,7 +37,11 @@ def _select_provider(provider: str) -> str:
             return "openai"
         if config.stable_diffusion_url:
             return "stable_diffusion"
+        if is_production_environment() and not mocks_allowed_in_runtime():
+            raise RuntimeError("Image provider not configured for production")
         return "mock"
+    if desired == "mock" and is_production_environment() and not mocks_allowed_in_runtime():
+        raise RuntimeError("Mock image generation is disabled in production")
     return desired
 
 

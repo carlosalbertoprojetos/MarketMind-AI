@@ -6,13 +6,14 @@ from ia_pipeline.generator.models import CopyVariation, GeneratedContentItem
 from ia_pipeline.parser.models import ParsedSiteContent
 
 
-SUPPORTED_PLATFORMS = {"instagram", "linkedin", "twitter", "x"}
+SUPPORTED_PLATFORMS = {"instagram", "facebook", "linkedin", "twitter", "x", "tiktok"}
 SUPPORTED_OBJECTIVES = {"engajamento", "conversao", "branding"}
 
 
 def _normalize_platform(platform: str) -> str:
     low = (platform or "").strip().lower()
-    return "twitter" if low == "x" else low
+    aliases = {"x": "twitter", "fb": "facebook"}
+    return aliases.get(low, low)
 
 
 def _normalize_objective(objective: str) -> str:

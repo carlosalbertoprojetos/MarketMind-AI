@@ -111,6 +111,17 @@ def _campaign_output_dir(root: Path, user_id: int, campaign_id: int) -> Path:
     return root / "ia_pipeline" / "output" / f"campaign_{user_id}_{campaign_id}"
 
 
+def _preview_output_dir(root: Path, user_id: int) -> Path:
+    output_base = root / "ia_pipeline" / "output"
+    output_base.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix=f"preview_{user_id}_", dir=output_base))
+
+
+def _path_belongs_to_user(current_user: User, relative_path: str) -> bool:
+    normalized = str(relative_path).lstrip("/").replace("\\", "/")
+    return normalized.startswith(f"preview_{current_user.id}_") or normalized.startswith(f"campaign_{current_user.id}_")
+
+
 def _generation_history_path(root: Path, user_id: int, campaign_id: int) -> Path:
     return _campaign_output_dir(root, user_id, campaign_id) / "generation-history.json"
 
@@ -357,22 +368,22 @@ def preview_from_url(
         out = run_pipeline(
             url=data.url,
             campaign_title=data.campaign_title,
-            platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin"]),
+            platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin", "twitter", "tiktok"]),
             login_url=login_url,
             login_user=login_user,
             login_pass=login_pass,
+            output_dir=_preview_output_dir(root, current_user.id),
             max_crawl_pages=data.max_crawl_pages,
             max_crawl_depth=data.max_crawl_depth,
             objective=data.objective,
         )
     except Exception as e:
-        return CampaignPreviewResponse(
-            url=data.url,
-            posts=[],
-            error=f"Falha ao executar o pipeline: {e}",
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Falha ao executar o pipeline: {e}",
         )
     if out.error:
-        return CampaignPreviewResponse(url=data.url, posts=[], error=out.error)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=out.error)
     return _build_preview_response(root, out, out.url)
 
 
@@ -503,13 +514,12 @@ def generate_campaign_content_from_saved_url(
             max_crawl_depth=int(os.environ.get("MARKETINGAI_MAX_CRAWL_DEPTH", "2")),
         )
     except Exception as e:
-        return CampaignPreviewResponse(
-            url=source_url,
-            posts=[],
-            error=f"Falha ao executar o pipeline: {e}",
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Falha ao executar o pipeline: {e}",
         )
     if out.error:
-        return CampaignPreviewResponse(url=source_url, posts=[], error=out.error)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=out.error)
     _append_generation_history(root, current_user.id, campaign.id, source_url, out)
     return _build_preview_response(root, out, source_url)
 
@@ -689,7 +699,7 @@ def export_campaign_package(
             out = run_pipeline(
                 url=data.url,
                 campaign_title=data.campaign_title,
-                platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin"]),
+                platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin", "twitter", "tiktok"]),
                 login_url=login_url,
                 login_user=login_user,
                 login_pass=login_pass,
@@ -740,12 +750,14 @@ def serve_preview_image(
     output_base = root / "ia_pipeline" / "output"
     path = path.lstrip("/")
     if ".." in path or path.startswith("/"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path inválido")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path inv?lido")
+    if not _path_belongs_to_user(current_user, path):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
     full = (output_base / path).resolve()
     if not str(full).startswith(str(output_base.resolve())):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acesso negado")
     if not full.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo não encontrado")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo n?o encontrado")
     guessed, _ = mimetypes.guess_type(str(full))
     media_type = guessed or "application/octet-stream"
     return FileResponse(full, media_type=media_type)

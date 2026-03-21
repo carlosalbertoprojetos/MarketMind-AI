@@ -1,41 +1,20 @@
 /**
  * Cliente HTTP para a API MarketingAI.
- * Base URL: /api quando usando proxy do Vite (dev) ou variavel VITE_API_URL.
+ * Usa cookies HttpOnly para sessao quando disponiveis.
  */
 export const BASE = import.meta.env.VITE_API_URL || '/api'
 export const AUTH_EXPIRED_EVENT = 'marketingai:auth-expired'
 
 let authExpiryNoticeDispatched = false
 
-function readStoredToken() {
-  try {
-    return localStorage.getItem('token')
-  } catch {
-    return null
-  }
-}
-
-function clearStoredToken() {
-  try {
-    localStorage.removeItem('token')
-  } catch {
-    // noop
-  }
-}
-
 export function markAuthSessionActive() {
   authExpiryNoticeDispatched = false
 }
 
-function getToken() {
-  return readStoredToken()
-}
-
-function getHeaders(includeAuth = true, extraHeaders = {}) {
-  const headers = { 'Content-Type': 'application/json', ...extraHeaders }
-  if (includeAuth) {
-    const token = getToken()
-    if (token) headers.Authorization = `Bearer ${token}`
+function getHeaders(includeJson = true, extraHeaders = {}) {
+  const headers = { ...extraHeaders }
+  if (includeJson && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
   }
   return headers
 }
@@ -44,7 +23,11 @@ async function parseErrorResponse(res) {
   const contentType = res.headers.get('content-type') || ''
   if (contentType.includes('application/json')) {
     const data = await res.json().catch(() => ({}))
-    return data.detail || data.message || ''
+    const detail = data.detail
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item.msg || item.message || '').filter(Boolean).join('; ')
+    }
+    return detail || data.message || ''
   }
   const text = await res.text().catch(() => '')
   return text.trim()
@@ -67,7 +50,6 @@ async function ensureOk(res, fallbackMessage, authAware = true) {
 
   const detail = (await parseErrorResponse(res)) || fallbackMessage
   if (authAware && res.status === 401) {
-    clearStoredToken()
     dispatchAuthExpired(detail)
   }
 
@@ -76,27 +58,34 @@ async function ensureOk(res, fallbackMessage, authAware = true) {
 
 async function requestJson(path, options = {}, { auth = true, fallbackMessage = 'Erro na requisicao' } = {}) {
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     ...options,
-    headers: getHeaders(auth, options.headers),
+    headers: getHeaders(true, options.headers),
   })
   await ensureOk(res, fallbackMessage, auth)
-  return res.json()
+  const data = await res.json()
+  if (auth) markAuthSessionActive()
+  return data
 }
 
 async function requestVoid(path, options = {}, { auth = true, fallbackMessage = 'Erro na requisicao' } = {}) {
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     ...options,
-    headers: getHeaders(auth, options.headers),
+    headers: getHeaders(true, options.headers),
   })
   await ensureOk(res, fallbackMessage, auth)
+  if (auth) markAuthSessionActive()
 }
 
 async function requestBlob(path, options = {}, { auth = true, fallbackMessage = 'Erro na requisicao' } = {}) {
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     ...options,
-    headers: getHeaders(auth, options.headers),
+    headers: getHeaders(true, options.headers),
   })
   await ensureOk(res, fallbackMessage, auth)
+  if (auth) markAuthSessionActive()
   return res.blob()
 }
 
@@ -131,7 +120,33 @@ export async function login(email, password) {
   return data
 }
 
-/** Lista campanhas paginadas. Retorna { items, total, limit, offset }. */
+export async function getSession() {
+  return requestJson('/auth/session', {}, {
+    auth: false,
+    fallbackMessage: 'Sessao indisponivel',
+  })
+}
+
+export async function refreshSession() {
+  const data = await requestJson('/auth/refresh', {
+    method: 'POST',
+  }, {
+    auth: false,
+    fallbackMessage: 'Nao foi possivel renovar a sessao',
+  })
+  markAuthSessionActive()
+  return data
+}
+
+export async function logoutSession() {
+  await requestVoid('/auth/logout', {
+    method: 'POST',
+  }, {
+    auth: false,
+    fallbackMessage: 'Erro ao encerrar sessao',
+  })
+}
+
 export async function getCampaigns(limit = 50, offset = 0, filters = {}) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
   if (filters.platform != null && filters.platform !== '') params.set('platform', String(filters.platform))
@@ -140,7 +155,6 @@ export async function getCampaigns(limit = 50, offset = 0, filters = {}) {
   return requestJson(`/user/campaigns?${params}`, {}, { fallbackMessage: 'Falha ao carregar campanhas' })
 }
 
-/** Resumo do dashboard: total, por plataforma, proximas 24h. */
 export async function getSummary() {
   return requestJson('/user/summary', {}, { fallbackMessage: 'Falha ao carregar resumo' })
 }
@@ -175,7 +189,6 @@ export async function deleteCampaign(id) {
   })
 }
 
-/** Gera pre-visualizacao de posts a partir da URL. */
 export async function previewFromUrl(url, campaignTitle, platforms = ['instagram', 'facebook', 'linkedin'], opts = {}) {
   const body = {
     url,
@@ -224,7 +237,6 @@ export async function deleteCredentials(id) {
   })
 }
 
-/** Gera e baixa o pacote ZIP (imagens + textos por plataforma). */
 export async function exportCampaignZip(url, campaignTitle, platforms = ['instagram', 'facebook', 'linkedin'], opts = {}) {
   const body = {
     url,
@@ -292,7 +304,6 @@ export async function runMultiAgentPipeline(url, campaignTitle, targetPlatform, 
   })
 }
 
-/** Gera posts de uma campanha usando a URL salva nela. */
 export async function generateCampaignFromSavedUrl(campaignId) {
   return requestJson(`/campaign/${campaignId}/generate`, {
     method: 'POST',
@@ -301,7 +312,6 @@ export async function generateCampaignFromSavedUrl(campaignId) {
   })
 }
 
-/** Lista ativos de midia gerados de uma campanha. */
 export async function getCampaignAssets(campaignId, filters = {}) {
   const params = new URLSearchParams()
   if (filters.kind) params.set('kind', filters.kind)
@@ -314,14 +324,12 @@ export async function getCampaignAssets(campaignId, filters = {}) {
   })
 }
 
-/** Lista historico de geracoes da campanha. */
 export async function getCampaignGenerations(campaignId) {
   return requestJson(`/campaign/${campaignId}/generations`, {}, {
     fallbackMessage: 'Erro ao carregar historico da campanha',
   })
 }
 
-/** Baixa ZIP com os ativos filtrados da campanha. */
 export async function exportCampaignAssetsZip(campaignId, filters = {}) {
   const params = new URLSearchParams()
   if (filters.kind) params.set('kind', filters.kind)
@@ -335,7 +343,6 @@ export async function exportCampaignAssetsZip(campaignId, filters = {}) {
   downloadBlob(blob, 'marketingai-assets-filtrados.zip')
 }
 
-/** Baixa ZIP com ativos selecionados manualmente da campanha. */
 export async function exportSelectedCampaignAssetsZip(campaignId, paths = []) {
   const blob = await requestBlob(`/campaign/${campaignId}/assets/export-selected`, {
     method: 'POST',
@@ -345,4 +352,3 @@ export async function exportSelectedCampaignAssetsZip(campaignId, paths = []) {
   })
   downloadBlob(blob, 'marketingai-assets-selecionados.zip')
 }
-

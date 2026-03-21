@@ -1,37 +1,41 @@
 """
-Dependências FastAPI: banco de dados e usuário autenticado via JWT.
+Dependencias FastAPI: banco de dados e usuario autenticado via JWT header ou cookie.
 """
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
 from app.services.auth_service import get_user_from_token
+from app.utils.security import ACCESS_COOKIE_NAME
 
-# Bearer token no header Authorization
 security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
+    request: Request,
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> User:
-    """
-    Obtém usuário atual a partir do token JWT.
-    Retorna 401 se token ausente ou inválido.
-    """
-    if not credentials or not credentials.credentials:
+    token = None
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+    elif request.cookies.get(ACCESS_COOKIE_NAME):
+        token = request.cookies.get(ACCESS_COOKIE_NAME)
+
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de autenticação ausente",
+            detail="Token de autenticacao ausente",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_user_from_token(db, credentials.credentials)
+
+    user = get_user_from_token(db, token, expected_type="access")
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido ou expirado",
+            detail="Token invalido ou expirado",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user

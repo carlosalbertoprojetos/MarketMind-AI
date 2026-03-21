@@ -5,15 +5,19 @@
 services:
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     environment:
+      - MARKETINGAI_ENV=${MARKETINGAI_ENV:-development}
       - SECRET_KEY=${SECRET_KEY:-marketingai-secret-change-in-production}
-      - DATABASE_URL=sqlite:///./data/marketingai.db
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/marketingai.db}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-http://localhost:80,http://localhost:5173,http://127.0.0.1:5173}
+      - RUN_MIGRATIONS=${RUN_MIGRATIONS:-0}
     volumes:
-      - backend_data:/app/data
+      - backend_data:/app/backend/data
+      - pipeline_output:/app/ia_pipeline/output
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\" || exit 1"]
       interval: 10s
@@ -36,3 +40,4 @@ services:
 
 volumes:
   backend_data:
+  pipeline_output:

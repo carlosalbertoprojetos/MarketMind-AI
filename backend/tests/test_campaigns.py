@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 """Testes das rotas de campanhas: CRUD e listagem."""
 import pytest
 from fastapi.testclient import TestClient
@@ -130,3 +132,41 @@ def test_mark_reminder_sent(client: TestClient, auth_headers):
     r = client.post(f"/campaign/{cid}/remind", headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["id"] == cid
+
+
+def test_preview_from_url_returns_422_when_pipeline_fails(client, auth_headers, monkeypatch):
+    class DummyOut:
+        error = None
+        url = "https://example.com"
+
+    def fake_run_pipeline(**kwargs):
+        raise RuntimeError("boom")
+
+    import app.routes.campaign as campaign_routes
+    fake_module = Mock(run_pipeline=fake_run_pipeline)
+    monkeypatch.setattr(campaign_routes, 'Path', campaign_routes.Path)
+    monkeypatch.setitem(__import__('sys').modules, 'ia_pipeline.pipeline', fake_module)
+
+    response = client.post(
+        '/campaign/preview',
+        json={'url': 'https://example.com', 'campaign_title': 'Teste', 'target_platform': 'instagram'},
+        headers=auth_headers,
+    )
+    assert response.status_code == 422
+    assert 'Falha ao executar o pipeline' in response.json()['detail']
+
+
+def test_generate_saved_campaign_returns_422_when_pipeline_reports_error(client, auth_headers, monkeypatch):
+    created = client.post('/campaign', json={'title': 'C1', 'content': 'URL: https://example.com'}, headers=auth_headers)
+    campaign_id = created.json()['id']
+
+    class DummyOut:
+        error = 'crawler falhou'
+
+    import app.routes.campaign as campaign_routes
+    fake_module = Mock(run_pipeline=lambda **kwargs: DummyOut())
+    monkeypatch.setitem(__import__('sys').modules, 'ia_pipeline.pipeline', fake_module)
+
+    response = client.post(f'/campaign/{campaign_id}/generate', headers=auth_headers)
+    assert response.status_code == 422
+    assert response.json()['detail'] == 'crawler falhou'

@@ -1,15 +1,12 @@
 import React from 'react'
 import { render } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider } from '../context/AuthContext'
 import { ToastProvider } from '../context/ToastContext'
 import { ThemeProvider } from '../context/ThemeContext'
 
-/**
- * Renderiza componente com ThemeProvider, AuthProvider, ToastProvider e MemoryRouter.
- * @param {React.ReactElement} ui
- * @param {{ initialEntries?: string[], initialIndex?: number }} options
- */
+const TEST_SESSION_KEY = '__MARKETINGAI_TEST_SESSION__'
+
 export function renderWithProviders(ui, { initialEntries = ['/'], initialIndex = 0 } = {}) {
   function Wrapper({ children }) {
     return (
@@ -27,15 +24,12 @@ export function renderWithProviders(ui, { initialEntries = ['/'], initialIndex =
   return render(ui, { wrapper: Wrapper })
 }
 
-/**
- * Define token no localStorage e renderiza (para simular usuário logado).
- */
-export function setAuthToken(token) {
+export function setAuthToken(token, user = { id: 1, email: 'teste@exemplo.com' }) {
   if (token) {
-    localStorage.setItem('token', token)
-  } else {
-    localStorage.removeItem('token')
+    window[TEST_SESSION_KEY] = { token, user }
+    return
   }
+  delete window[TEST_SESSION_KEY]
 }
 
 export * from '@testing-library/react'

@@ -94,3 +94,33 @@ def test_generate_marketing_content_returns_variations_for_single_platform():
     assert generated[0].headlines
     assert generated[0].copy_variations
     assert generated[0].visual_suggestions
+
+
+def test_generate_marketing_content_supports_facebook_platform():
+    parsed = parse_crawl_result(_sample_crawl())
+    business = analyze_business(parsed)
+    generated = generate_marketing_content(
+        parsed,
+        business,
+        target_platform="facebook",
+        objective="branding",
+        campaign_title="Acme Growth",
+    )
+    assert len(generated) == 2
+    assert all(item.platform == "facebook" for item in generated)
+    assert all(item.persuasive_text for item in generated)
+
+
+def test_generate_marketing_content_supports_tiktok_platform():
+    parsed = parse_crawl_result(_sample_crawl())
+    business = analyze_business(parsed)
+    generated = generate_marketing_content(
+        parsed,
+        business,
+        target_platform="tiktok",
+        objective="branding",
+        campaign_title="Acme Growth",
+    )
+    assert len(generated) == 2
+    assert all(item.platform == "tiktok" for item in generated)
+    assert all(item.copy_variations for item in generated)

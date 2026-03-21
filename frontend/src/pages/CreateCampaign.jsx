@@ -5,6 +5,14 @@ import Navbar from '../components/Navbar'
 import PostPreviewCard from '../components/PostPreviewCard'
 import { useToast } from '../context/ToastContext'
 
+const ALL_MARKETING_PLATFORMS = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok']
+
+function getRequestedPlatforms(platform) {
+  const normalized = String(platform || '').trim().toLowerCase()
+  return normalized ? [normalized] : ALL_MARKETING_PLATFORMS
+}
+
+
 function parseUrlFromContent(content) {
   if (!content) return ''
   const s = String(content).trim()
@@ -89,9 +97,9 @@ export default function CreateCampaign() {
     setPreviewLoading(true)
     try {
       const opts = selectedCredentialId
-        ? { credentialsId: parseInt(selectedCredentialId, 10), maxCrawlPages }
-        : { loginUrl: loginUrl || undefined, loginUsername: loginUser || undefined, loginPassword: loginPass || undefined, maxCrawlPages }
-      const data = await previewFromUrl(url, title || url, ['instagram', 'facebook', 'linkedin', 'twitter'], opts)
+        ? { credentialsId: parseInt(selectedCredentialId, 10), maxCrawlPages, targetPlatform: platform || undefined }
+        : { loginUrl: loginUrl || undefined, loginUsername: loginUser || undefined, loginPassword: loginPass || undefined, maxCrawlPages, targetPlatform: platform || undefined }
+      const data = await previewFromUrl(url, title || url, getRequestedPlatforms(platform), opts)
       setPreview(data)
     } catch (err) {
       setError(err.message || 'Erro ao gerar preview')
@@ -101,7 +109,7 @@ export default function CreateCampaign() {
   }
 
   const handleAddCredential = async (e) => {
-    e.preventDefault()
+    e?.preventDefault?.()
     if (!newCredSite.trim()) return
     try {
       const c = await createCredentials(newCredSite, newCredUrl || undefined, newCredUser || undefined, newCredPass || undefined)
@@ -130,9 +138,9 @@ export default function CreateCampaign() {
     setExportLoading(true)
     try {
       const opts = selectedCredentialId
-        ? { credentialsId: parseInt(selectedCredentialId, 10), maxCrawlPages }
-        : { loginUrl: loginUrl || undefined, loginUsername: loginUser || undefined, loginPassword: loginPass || undefined, maxCrawlPages }
-      await exportCampaignZip(url, title || url, ['instagram', 'facebook', 'linkedin', 'twitter'], opts)
+        ? { credentialsId: parseInt(selectedCredentialId, 10), maxCrawlPages, targetPlatform: platform || undefined }
+        : { loginUrl: loginUrl || undefined, loginUsername: loginUser || undefined, loginPassword: loginPass || undefined, maxCrawlPages, targetPlatform: platform || undefined }
+      await exportCampaignZip(url, title || url, getRequestedPlatforms(platform), opts)
     } catch (err) {
       setError(err.message || 'Erro ao exportar')
     } finally {
@@ -252,16 +260,28 @@ export default function CreateCampaign() {
                 <button type="button" onClick={() => setShowAddCred(true)} className="text-sm text-primary-600 dark:text-primary-400">+ Nova</button>
               </div>
               {showAddCred && (
-                <form onSubmit={handleAddCredential} className="bg-gray-50 dark:bg-gray-800 p-3 rounded space-y-2 border border-gray-200 dark:border-gray-700">
-                  <input type="text" value={newCredSite} onChange={(e) => setNewCredSite(e.target.value)} placeholder="Nome (ex: Meu Site)" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" required />
-                  <input type="url" value={newCredUrl} onChange={(e) => setNewCredUrl(e.target.value)} placeholder="URL de login" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
-                  <input type="text" value={newCredUser} onChange={(e) => setNewCredUser(e.target.value)} placeholder="Usuário" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
-                  <input type="password" value={newCredPass} onChange={(e) => setNewCredPass(e.target.value)} placeholder="Senha" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded space-y-3 border border-gray-200 dark:border-gray-700">
+                  <div>
+                    <label htmlFor="new-cred-site" className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">Nome</label>
+                    <input id="new-cred-site" type="text" value={newCredSite} onChange={(e) => setNewCredSite(e.target.value)} placeholder="Nome (ex: Meu Site)" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" required />
+                  </div>
+                  <div>
+                    <label htmlFor="new-cred-url" className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">URL de login</label>
+                    <input id="new-cred-url" type="url" value={newCredUrl} onChange={(e) => setNewCredUrl(e.target.value)} placeholder="URL de login" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
+                  </div>
+                  <div>
+                    <label htmlFor="new-cred-user" className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">Usu?rio</label>
+                    <input id="new-cred-user" type="text" value={newCredUser} onChange={(e) => setNewCredUser(e.target.value)} placeholder="Usu?rio" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
+                  </div>
+                  <div>
+                    <label htmlFor="new-cred-pass" className="block text-xs font-medium text-gray-700 dark:text-gray-200 mb-1">Senha</label>
+                    <input id="new-cred-pass" type="password" value={newCredPass} onChange={(e) => setNewCredPass(e.target.value)} placeholder="Senha" className="block w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
+                  </div>
                   <div className="flex gap-2">
-                    <button type="submit" className="bg-primary-500 text-white px-2 py-1 rounded text-sm">Salvar</button>
+                    <button type="button" onClick={handleAddCredential} className="bg-primary-500 text-white px-2 py-1 rounded text-sm">Salvar</button>
                     <button type="button" onClick={() => setShowAddCred(false)} className="border border-gray-300 dark:border-gray-600 px-2 py-1 rounded text-sm text-gray-700 dark:text-gray-200">Cancelar</button>
                   </div>
-                </form>
+                </div>
               )}
               <p className="text-xs text-gray-500 dark:text-gray-400">Ou digite manualmente (não salvo):</p>
               <input type="url" value={loginUrl} onChange={(e) => setLoginUrl(e.target.value)} placeholder="URL de login" className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-gray-100" disabled={!!selectedCredentialId} />

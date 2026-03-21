@@ -9,7 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { setToken } = useAuth()
+  const { refreshSession, setToken } = useAuth()
   const { addToast } = useToast()
   const navigate = useNavigate()
 
@@ -19,7 +19,10 @@ export default function Login() {
     setLoading(true)
     try {
       const { access_token } = await login(email, password)
-      setToken(access_token)
+      const sessionOk = await refreshSession()
+      if (!sessionOk && access_token) {
+        setToken(access_token)
+      }
       addToast('Bem-vindo!')
       navigate('/')
     } catch (err) {
@@ -58,19 +61,17 @@ export default function Login() {
               className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
             />
           </div>
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button
             type="submit"
             disabled={loading}
             className="w-full bg-primary-500 text-white py-2 rounded-md hover:bg-primary-600 disabled:opacity-50"
           >
-            {loading ? 'Entrando…' : 'Entrar'}
+            {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
-          Não tem conta? <Link to="/register" className="text-primary-600 dark:text-primary-400 hover:underline">Cadastre-se</Link>
+          Nao tem conta? <Link to="/register" className="text-primary-600 dark:text-primary-400 hover:underline">Cadastre-se</Link>
         </p>
       </div>
     </div>
