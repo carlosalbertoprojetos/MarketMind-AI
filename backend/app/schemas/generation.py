@@ -1,5 +1,5 @@
-"""Schemas para histórico de gerações de campanha."""
-from pydantic import BaseModel
+﻿"""Schemas para histórico de gerações de campanha."""
+from pydantic import BaseModel, Field
 
 
 class CampaignGenerationItem(BaseModel):
@@ -7,8 +7,9 @@ class CampaignGenerationItem(BaseModel):
     source_url: str
     post_count: int
     asset_count: int
+    platforms: list[str] = Field(default_factory=list)
 
 
 class CampaignGenerationHistoryResponse(BaseModel):
     campaign_id: int
-    generations: list[CampaignGenerationItem] = []
+    generations: list[CampaignGenerationItem] = Field(default_factory=list)

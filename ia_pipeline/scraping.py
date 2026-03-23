@@ -1,11 +1,11 @@
 """
-MarketingAI - Web scraping inteligente.
+MarketingAI - Coleta visual e textual de URLs explicitas.
 
 Usa Playwright (headless) para:
-- navegar em URLs com login opcional
-- capturar telas e elementos de interesse
-- seguir links internos relevantes do mesmo site
-- identificar o tipo de tela visitada para gerar marketing mais contextual
+- abrir uma URL com login opcional
+- capturar a tela informada, incluindo secoes de landing pages longas
+- extrair imagens e metadados da propria pagina
+- opcionalmente processar uma lista explicita de URLs, sem navegar por links internos
 """
 import asyncio
 import hashlib
@@ -112,6 +112,19 @@ def _normalize_url(url: str) -> str:
     return normalized
 
 
+def build_requested_url_list(start_url: str, source_urls: list[str] | None = None, max_urls: int | None = None) -> list[str]:
+    urls: list[str] = []
+    candidates = [start_url, *(source_urls or [])]
+    for raw in candidates:
+        normalized = _normalize_url(raw)
+        if not normalized or normalized in urls:
+            continue
+        urls.append(normalized)
+        if max_urls and len(urls) >= max_urls:
+            break
+    return urls
+
+
 def _goto_resilient(page, url: str, timeout_ms: int = 60000) -> None:
     last_err: Exception | None = None
     for wait_until in ("domcontentloaded", "load"):
@@ -186,6 +199,64 @@ def _page_body_text(page, max_chars: int = 20000) -> str:
         return text[:max_chars] if text else ""
     except Exception:
         return ""
+
+
+def _capture_scroll_sections(page, output_dir: Path, base_name: str, *, run_ocr: bool, max_sections: int = 6) -> tuple[list[str], list[str]]:
+    output_dir = Path(output_dir)
+    section_paths: list[str] = []
+    ocr_texts: list[str] = []
+    try:
+        metrics = page.evaluate(
+            """() => ({
+                scrollHeight: Math.max(document.body?.scrollHeight || 0, document.documentElement?.scrollHeight || 0),
+                viewportHeight: window.innerHeight || document.documentElement?.clientHeight || 0
+            })"""
+        )
+        scroll_height = int((metrics or {}).get("scrollHeight") or 0)
+        viewport_height = int((metrics or {}).get("viewportHeight") or 0)
+    except Exception:
+        return section_paths, ocr_texts
+
+    if scroll_height <= 0 or viewport_height <= 0:
+        return section_paths, ocr_texts
+
+    max_offset = max(scroll_height - viewport_height, 0)
+    if max_offset <= 0:
+        return section_paths, ocr_texts
+
+    step = max(viewport_height - 120, 240)
+    positions: list[int] = []
+    current = 0
+    while current < max_offset and len(positions) < max_sections:
+        positions.append(current)
+        current += step
+    if len(positions) < max_sections and (not positions or positions[-1] != max_offset):
+        positions.append(max_offset)
+
+    seen: set[int] = set()
+    for index, top in enumerate(positions, start=1):
+        top = max(0, min(int(top), max_offset))
+        if top in seen:
+            continue
+        seen.add(top)
+        try:
+            page.evaluate("y => window.scrollTo(0, y)", top)
+            time.sleep(0.35)
+            section_path = (output_dir / f"{base_name}_section_{index}.png").resolve()
+            page.screenshot(path=str(section_path))
+            if not section_path.is_file() or section_path.stat().st_size < 24:
+                continue
+            section_paths.append(str(section_path))
+            if run_ocr:
+                ocr_texts.append(run_ocr_on_image(str(section_path)))
+        except Exception:
+            continue
+
+    try:
+        page.evaluate("window.scrollTo(0, 0)")
+    except Exception:
+        pass
+    return section_paths, ocr_texts
 
 
 def _screen_keywords() -> dict[str, tuple[str, ...]]:
@@ -415,8 +486,10 @@ def _capture_page_assets(
     *,
     run_ocr: bool,
     grab_extra_elements: bool = True,
+    capture_scroll_sections: bool = True,
+    max_scroll_sections: int = 6,
 ) -> tuple[list[str], list[str], list[str]]:
-    """Captura viewport, elementos e imagens da pagina."""
+    """Captura viewport, secoes da pagina, elementos destacados e imagens embutidas."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     screenshot_paths: list[str] = []
@@ -430,6 +503,17 @@ def _capture_page_assets(
     screenshot_paths.append(str(viewport_path))
     if run_ocr:
         ocr_texts.append(run_ocr_on_image(str(viewport_path)))
+
+    if capture_scroll_sections:
+        section_paths, section_ocr = _capture_scroll_sections(
+            page,
+            output_dir,
+            base_name,
+            run_ocr=run_ocr,
+            max_sections=max_scroll_sections,
+        )
+        screenshot_paths.extend(section_paths)
+        ocr_texts.extend(section_ocr)
 
     if grab_extra_elements:
         for selector, suffix in [
@@ -458,7 +542,7 @@ def _capture_page_assets(
         image_dir = output_dir / "images"
         image_dir.mkdir(parents=True, exist_ok=True)
         seen_src: set[str] = set()
-        for idx, src in enumerate((image_srcs or [])[:10]):
+        for idx, src in enumerate((image_srcs or [])[:12]):
             if not src or src in seen_src:
                 continue
             seen_src.add(src)
@@ -470,7 +554,9 @@ def _capture_page_assets(
                 if not content_type.startswith("image/"):
                     continue
                 ext = os.path.splitext(urlparse(src).path)[1].lower()
-                if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif"):
+                if content_type == "image/svg+xml":
+                    ext = ".svg"
+                elif ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"):
                     ext = ".png"
                 img_path = image_dir / f"{base_name}_asset_{idx + 1}{ext}"
                 img_path.write_bytes(resp.body())
@@ -526,6 +612,7 @@ def scrape_url(
     viewport_height: int = 720,
     output_dir: Optional[Path] = None,
     run_ocr: bool = True,
+    capture_scroll_sections: bool = True,
 ) -> ScrapingResult:
     output_dir = _ensure_output_dir(output_dir or DEFAULT_OUTPUT_DIR)
     base_name = _sanitize_filename(url)
@@ -562,6 +649,7 @@ def scrape_url(
                 base_name,
                 run_ocr=run_ocr,
                 grab_extra_elements=True,
+                capture_scroll_sections=capture_scroll_sections,
             )
             result.screenshot_paths.extend(shots)
             result.extracted_image_paths.extend(extracted)
@@ -589,17 +677,20 @@ def crawl_site(
     login_url: Optional[str] = None,
     login_username: Optional[str] = None,
     login_password: Optional[str] = None,
+    source_urls: list[str] | None = None,
     max_pages: int = 5,
-    max_depth: int = 2,
+    max_depth: int = 0,
     max_links_per_page: int = 14,
     wait_seconds: float = 1.5,
     run_ocr: bool = True,
     viewport_width: int = 1280,
     viewport_height: int = 720,
+    follow_internal_links: bool = False,
+    capture_scroll_sections: bool = True,
 ) -> CrawlResult:
     """
-    Navega entre paginas do mesmo site, seguindo links internos prioritarios.
-    A ordem segue BFS, mas com score para priorizar paginas mais estrategicas.
+    Coleta apenas as URLs explicitamente informadas por padrao.
+    A navegacao automatica por links internos fica desativada, mas pode ser habilitada explicitamente.
     """
     out = CrawlResult(start_url=start_url)
     output_root = _ensure_output_dir(output_dir or DEFAULT_OUTPUT_DIR)
@@ -610,6 +701,11 @@ def crawl_site(
 
     max_pages = max(1, min(int(max_pages), 20))
     max_depth = max(0, min(int(max_depth), 5))
+    requested_urls = build_requested_url_list(start_url, source_urls, max_pages)
+    if not requested_urls:
+        out.error = "Nenhuma URL valida foi informada para coleta."
+        return out
+
     discovered_by: dict[str, LinkCandidate] = {}
 
     try:
@@ -627,26 +723,11 @@ def crawl_site(
                 browser.close()
                 return out
 
-            queue: deque[tuple[str, int]] = deque([(_normalize_url(start_url), 0)])
-            visited: set[str] = set()
             page_index = 0
 
-            while queue and len(out.pages) < max_pages:
-                current, depth = queue.popleft()
-                current = _normalize_url(current)
-                if not current or current in visited:
-                    continue
-                visited.add(current)
-
-                try:
-                    _goto_resilient(page, current, timeout_ms=60000)
-                except Exception as exc:
-                    if not out.pages:
-                        out.error = f"Falha ao abrir {current}: {exc}"
-                        browser.close()
-                        return out
-                    continue
-
+            def capture_page(current: str, discovered: LinkCandidate | None = None) -> list[LinkCandidate]:
+                nonlocal page_index
+                _goto_resilient(page, current, timeout_ms=60000)
                 time.sleep(max(wait_seconds, 1.0))
                 page_title = _page_title_text(page)
                 primary_heading = _extract_primary_heading(page)
@@ -668,24 +749,15 @@ def crawl_site(
 
                 stem = f"{page_index:02d}_{hashlib.md5(current.encode('utf-8', errors='ignore')).hexdigest()[:10]}"
                 page_dir = output_root / f"page_{stem}"
-
-                try:
-                    shots, extracted, ocr_list = _capture_page_assets(
-                        page,
-                        context,
-                        page_dir,
-                        stem,
-                        run_ocr=run_ocr,
-                        grab_extra_elements=False,
-                    )
-                except Exception as exc:
-                    if not out.pages:
-                        out.error = f"Captura falhou em {current}: {exc}"
-                        browser.close()
-                        return out
-                    continue
-
-                discovered = discovered_by.get(current)
+                shots, extracted, ocr_list = _capture_page_assets(
+                    page,
+                    context,
+                    page_dir,
+                    stem,
+                    run_ocr=run_ocr,
+                    grab_extra_elements=False,
+                    capture_scroll_sections=capture_scroll_sections,
+                )
                 out.pages.append(
                     PageCapture(
                         url=current,
@@ -716,15 +788,44 @@ def crawl_site(
                     )
                 )
                 page_index += 1
+                return ranked_links
 
-                if depth >= max_depth:
-                    continue
-
-                queued_urls = {item[0] for item in queue}
-                for link in ranked_links:
-                    if link.url not in visited and link.url not in queued_urls:
-                        queue.append((link.url, depth + 1))
-                        discovered_by.setdefault(link.url, link)
+            if follow_internal_links:
+                queue: deque[tuple[str, int]] = deque((requested_url, 0) for requested_url in requested_urls)
+                visited: set[str] = set()
+                while queue and len(out.pages) < max_pages:
+                    current, depth = queue.popleft()
+                    current = _normalize_url(current)
+                    if not current or current in visited:
+                        continue
+                    visited.add(current)
+                    try:
+                        ranked_links = capture_page(current, discovered_by.get(current))
+                    except Exception as exc:
+                        if not out.pages:
+                            out.error = f"Falha ao abrir {current}: {exc}"
+                            browser.close()
+                            return out
+                        continue
+                    if depth >= max_depth:
+                        continue
+                    queued_urls = {item[0] for item in queue}
+                    for link in ranked_links:
+                        if link.url not in visited and link.url not in queued_urls:
+                            queue.append((link.url, depth + 1))
+                            discovered_by.setdefault(link.url, link)
+            else:
+                for current in requested_urls:
+                    try:
+                        capture_page(current)
+                    except Exception as exc:
+                        if not out.pages:
+                            out.error = f"Falha ao abrir {current}: {exc}"
+                            browser.close()
+                            return out
+                        continue
+                    if len(out.pages) >= max_pages:
+                        break
 
             browser.close()
     except Exception as exc:

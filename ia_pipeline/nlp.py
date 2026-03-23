@@ -43,6 +43,16 @@ PLATFORM_SPECS = {
         "rules": "Legenda curta, até 150 caracteres. Tom jovem e dinâmico.",
         "hashtag_suggestion_count": 5,
     },
+    "youtube": {
+        "caption_max": 5000,
+        "rules": "Descricao mais completa, com promessa clara, contexto, CTA e foco em retencao.",
+        "hashtag_suggestion_count": 5,
+    },
+    "x": {
+        "caption_max": 280,
+        "rules": "Maximo 280 caracteres. Objetivo e impactante. Hashtags 2-3.",
+        "hashtag_suggestion_count": 3,
+    },
 }
 
 

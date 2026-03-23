@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -6,7 +6,12 @@ import { getCampaign, deleteCampaign, createCampaign } from '../api/client'
 import Navbar from '../components/Navbar'
 import { useToast } from '../context/ToastContext'
 
-/** Página de detalhe de uma campanha: título, conteúdo, plataforma, agendamento; ações Editar e Excluir. */
+function getCampaignPlatforms(campaign) {
+  if (Array.isArray(campaign?.platforms) && campaign.platforms.length > 0) return campaign.platforms
+  return campaign?.platform ? [campaign.platform] : []
+}
+
+/** Página de detalhe de uma campanha: título, conteúdo, plataformas e agendamento; ações Editar e Excluir. */
 export default function CampaignDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -38,10 +43,11 @@ export default function CampaignDetail() {
     if (!campaign) return
     setDuplicating(true)
     try {
+      const platforms = getCampaignPlatforms(campaign)
       const copy = await createCampaign({
         title: `${campaign.title} (cópia)`,
         content: campaign.content || null,
-        platform: campaign.platform || null,
+        platform: campaign.platform || platforms[0] || null,
         schedule: null,
       })
       addToast('Campanha duplicada.')
@@ -56,14 +62,15 @@ export default function CampaignDetail() {
   const scheduleStr = campaign?.schedule
     ? format(new Date(campaign.schedule), "EEEE, d 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })
     : null
+  const platforms = getCampaignPlatforms(campaign)
 
-  if (loading) return <div className="min-h-screen bg-gray-50 dark:bg-gray-900"><Navbar /><main className="max-w-2xl mx-auto p-6"><p className="text-gray-500 dark:text-gray-400">Carregando…</p></main></div>
-  if (error || !campaign) return <div className="min-h-screen bg-gray-50 dark:bg-gray-900"><Navbar /><main className="max-w-2xl mx-auto p-6"><p className="text-red-600 dark:text-red-400">{error || 'Campanha não encontrada.'}</p><Link to="/" className="text-primary-600 dark:text-primary-400">Voltar ao dashboard</Link></main></div>
+  if (loading) return <div className="min-h-screen bg-gray-50 dark:bg-gray-900"><Navbar /><main className="max-w-7xl mx-auto p-6"><p className="text-gray-500 dark:text-gray-400">Carregando…</p></main></div>
+  if (error || !campaign) return <div className="min-h-screen bg-gray-50 dark:bg-gray-900"><Navbar /><main className="max-w-7xl mx-auto p-6"><p className="text-red-600 dark:text-red-400">{error || 'Campanha não encontrada.'}</p><Link to="/" className="text-primary-600 dark:text-primary-400">Voltar ao dashboard</Link></main></div>
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
-      <main className="max-w-2xl mx-auto p-6">
+      <main className="max-w-7xl mx-auto p-6">
         <div className="mb-4">
           <Link to="/" className="text-sm text-primary-600 dark:text-primary-400 hover:underline">← Voltar ao dashboard</Link>
         </div>
@@ -71,9 +78,9 @@ export default function CampaignDetail() {
           <div className="p-6 border-b border-gray-100 dark:border-gray-700">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{campaign.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              {campaign.platform && (
-                <span className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{campaign.platform}</span>
-              )}
+              {platforms.map((item) => (
+                <span key={item} className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{item}</span>
+              ))}
               {scheduleStr && <span>Agendada: {scheduleStr}</span>}
             </div>
           </div>

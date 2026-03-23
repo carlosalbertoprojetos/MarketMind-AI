@@ -20,8 +20,8 @@ if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from app.database import Base, SQLALCHEMY_DATABASE_URL, engine
-from app.models import Campaign, Credentials, User
-from app.routes import auth, campaign, credentials, user
+from app.models import Campaign, Credentials, SavedContent, User
+from app.routes import auth, campaign, credentials, system, user
 from app.utils.limiter import limiter
 from app.utils.security import DEFAULT_SECRET_KEY, SECRET_KEY
 
@@ -105,6 +105,7 @@ app.include_router(auth.router)
 app.include_router(user.router)
 app.include_router(campaign.router)
 app.include_router(credentials.router)
+app.include_router(system.router)
 
 
 @app.get("/health")

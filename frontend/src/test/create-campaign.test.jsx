@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+﻿import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { waitFor, screen, renderWithProviders, userEvent, setAuthToken } from './test-utils'
 import CreateCampaign from '../pages/CreateCampaign'
 
@@ -45,21 +45,46 @@ describe('CreateCampaign', () => {
     mockCreateCredentials.mockResolvedValue({ id: 1, site_name: 'Portal', login_url: 'https://portal.com/login' })
   })
 
-  it('envia preview respeitando a plataforma selecionada', async () => {
+  it('envia preview usando apenas as URLs explicitamente informadas e as plataformas selecionadas', async () => {
     renderWithProviders(<CreateCampaign />)
     await waitFor(() => expect(mockGetCredentials).toHaveBeenCalled())
 
-    await userEvent.type(screen.getByLabelText(/url do site\/produto/i), 'https://example.com')
-    await userEvent.selectOptions(screen.getByLabelText(/plataforma/i), 'tiktok')
-    await userEvent.click(screen.getByText(/visualizar posts/i))
+    await userEvent.type(screen.getByLabelText(/url principal/i), 'https://example.com')
+    await userEvent.type(screen.getByLabelText(/urls adicionais/i), 'https://example.com/precos\nhttps://example.com/faq')
+    await userEvent.selectOptions(screen.getByLabelText(/^rede social$/i), 'instagram')
+    await userEvent.click(screen.getByRole('button', { name: /adicionar rede/i }))
+    await userEvent.selectOptions(screen.getByLabelText(/^rede social$/i), 'tiktok')
+    await userEvent.click(screen.getByRole('button', { name: /adicionar rede/i }))
+    await userEvent.click(screen.getByText(/pre-visualizar posts/i))
 
     await waitFor(() => expect(mockPreviewFromUrl).toHaveBeenCalled())
     expect(mockPreviewFromUrl).toHaveBeenCalledWith(
       'https://example.com',
       'https://example.com',
-      ['tiktok'],
-      expect.objectContaining({ targetPlatform: 'tiktok' }),
+      ['instagram', 'tiktok'],
+      expect.objectContaining({
+        sourceUrls: ['https://example.com/precos', 'https://example.com/faq'],
+        followInternalLinks: false,
+        captureScrollSections: true,
+      }),
     )
+    expect(mockPreviewFromUrl.mock.calls[0][3].targetPlatform).toBeUndefined()
+  })
+
+  it('permite adicionar, editar e remover redes sociais', async () => {
+    renderWithProviders(<CreateCampaign />)
+    await waitFor(() => expect(mockGetCredentials).toHaveBeenCalled())
+
+    await userEvent.click(screen.getByRole('button', { name: /adicionar rede/i }))
+    expect(screen.getAllByText('Instagram').length).toBeGreaterThan(0)
+
+    await userEvent.click(screen.getByRole('button', { name: /editar/i }))
+    await userEvent.selectOptions(screen.getByLabelText(/^rede social$/i), 'youtube')
+    await userEvent.click(screen.getByRole('button', { name: /salvar rede/i }))
+    expect(screen.getAllByText('YouTube').length).toBeGreaterThan(0)
+
+    await userEvent.click(screen.getByRole('button', { name: /excluir/i }))
+    expect(screen.getByText(/nenhuma rede selecionada/i)).toBeInTheDocument()
   })
 
   it('salva credencial sem depender de form aninhado', async () => {
@@ -74,5 +99,47 @@ describe('CreateCampaign', () => {
     await userEvent.click(screen.getByRole('button', { name: /^salvar$/i }))
 
     await waitFor(() => expect(mockCreateCredentials).toHaveBeenCalledWith('Portal Fechado', 'https://portal.com/login', 'carlos', 'secret'))
+  })
+
+  it('persiste e restaura URLs adicionais e plataformas na campanha', async () => {
+    const editCampaign = {
+      id: 9,
+      title: 'Campanha existente',
+      content: 'URL: https://example.com\n\nADDITIONAL_URLS:\nhttps://example.com/precos\nhttps://example.com/faq\nEND_ADDITIONAL_URLS\n\nPLATFORMS:\ninstagram\nyoutube\nEND_PLATFORMS\n\nNotas internas',
+      platform: 'instagram',
+      schedule: null,
+    }
+
+    renderWithProviders(<CreateCampaign />, {
+      initialEntries: [{ pathname: '/campaign/new', state: { editCampaign } }],
+    })
+
+    await waitFor(() => expect(mockGetCredentials).toHaveBeenCalled())
+    expect(screen.getByLabelText(/url principal/i)).toHaveValue('https://example.com')
+    expect(screen.getByLabelText(/urls adicionais/i)).toHaveValue('https://example.com/precos\nhttps://example.com/faq')
+    expect(screen.getAllByText('Instagram').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('YouTube').length).toBeGreaterThan(0)
+    expect(screen.getByLabelText(/conteudo \/ notas/i)).toHaveValue('Notas internas')
+  })
+
+  it('salva URLs adicionais e plataformas no conteudo persistido da campanha', async () => {
+    mockCreateCampaign.mockResolvedValue({ id: 11 })
+
+    renderWithProviders(<CreateCampaign />)
+    await waitFor(() => expect(mockGetCredentials).toHaveBeenCalled())
+
+    await userEvent.type(screen.getByLabelText(/url principal/i), 'https://example.com')
+    await userEvent.type(screen.getByLabelText(/urls adicionais/i), 'https://example.com/precos\nhttps://example.com/faq')
+    await userEvent.type(screen.getByLabelText(/conteudo \/ notas/i), 'Notas internas')
+    await userEvent.click(screen.getByRole('button', { name: /adicionar rede/i }))
+    await userEvent.selectOptions(screen.getByLabelText(/^rede social$/i), 'linkedin')
+    await userEvent.click(screen.getByRole('button', { name: /adicionar rede/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^criar campanha$/i }))
+
+    await waitFor(() => expect(mockCreateCampaign).toHaveBeenCalled())
+    expect(mockCreateCampaign).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'instagram',
+      content: 'URL: https://example.com\n\nADDITIONAL_URLS:\nhttps://example.com/precos\nhttps://example.com/faq\nEND_ADDITIONAL_URLS\n\nPLATFORMS:\ninstagram\nlinkedin\nEND_PLATFORMS\n\nNotas internas',
+    }))
   })
 })

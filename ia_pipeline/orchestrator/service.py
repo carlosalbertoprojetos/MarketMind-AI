@@ -1,7 +1,8 @@
 """Orquestrador principal do sistema autonomo."""
 from dataclasses import asdict
 
-from ia_pipeline.ai_image.service import generate_image_variations, prompt_builder
+from ia_pipeline.ai_image.models import ImageAsset
+from ia_pipeline.ai_image.service import generate_image_variations
 from ia_pipeline.analyzer.service import analyze_business
 from ia_pipeline.autonomous.service import run_autonomous_cycle
 from ia_pipeline.crawler.service import crawl_website
@@ -10,6 +11,7 @@ from ia_pipeline.orchestrator.models import OrchestratedRunResult
 from ia_pipeline.parser.service import parse_crawl_result
 from ia_pipeline.publisher.service import publish_post
 from ia_pipeline.runtime import get_logger, get_pipeline_config, write_json_artifact
+from ia_pipeline.services.visual_service import decide_visual_source, serialize_visual_decision
 
 
 def run_pipeline(
@@ -21,8 +23,11 @@ def run_pipeline(
     login_url: str | None = None,
     login_username: str | None = None,
     login_password: str | None = None,
+    source_urls: list[str] | None = None,
     auto_publish: bool = False,
     performance_data: list[dict] | None = None,
+    follow_internal_links: bool = False,
+    capture_scroll_sections: bool = True,
 ) -> OrchestratedRunResult:
     logger = get_logger("marketingai.orchestrator")
     config = get_pipeline_config()
@@ -35,9 +40,12 @@ def run_pipeline(
             login_url=login_url,
             login_username=login_username,
             login_password=login_password,
+            source_urls=source_urls,
             max_pages=config.max_crawl_pages,
             max_depth=config.max_crawl_depth,
             run_ocr=True,
+            follow_internal_links=follow_internal_links,
+            capture_scroll_sections=capture_scroll_sections,
         )
         if crawl.error:
             result.status = "failed"
@@ -47,6 +55,7 @@ def run_pipeline(
         parsed_site = parse_crawl_result(crawl)
         business_summary = analyze_business(parsed_site)
         result.business_summary = asdict(business_summary)
+        crawl_page_map = {page.url: page for page in crawl.pages}
 
         generated_contents = generate_marketing_content(
             parsed_site,
@@ -74,19 +83,40 @@ def run_pipeline(
         image_assets = []
         publish_results = []
         for item in generated_contents:
-            content_for_image = " ".join(
-                [
-                    item.persuasive_text,
-                    business_summary.summary,
-                    " ".join(item.visual_suggestions[:2]),
-                ]
-            ).strip()
-            prompt = prompt_builder(content_for_image, item.platform, config.image_style)
-            variations = generate_image_variations(content_for_image, item.platform, config.image_style)
-            image_assets.extend(asdict(asset) for asset in variations)
+            source_page = crawl_page_map.get(item.source_page_url)
+            source_images = []
+            if source_page:
+                source_images = list(source_page.screenshot_paths) + list(source_page.extracted_image_paths)
+            visual_decision = decide_visual_source(
+                platform=item.platform,
+                objective=objective,
+                screen_type=item.screen_type,
+                screen_label=item.screen_label,
+                headline=(item.headlines[0] if item.headlines else business_summary.value_proposition),
+                caption=item.persuasive_text,
+                audience=business_summary.target_audience,
+                value_proposition=business_summary.value_proposition,
+                differentiator=(business_summary.differentiators[0] if business_summary.differentiators else ""),
+                source_images=source_images,
+                style=config.image_style,
+            )
+            if visual_decision.selected_mode == "real" and source_images:
+                primary_image = visual_decision.recommended_source_path or source_images[0]
+                real_asset = ImageAsset(
+                    platform=item.platform,
+                    provider="real",
+                    style=config.image_style,
+                    prompt=visual_decision.prompt,
+                    path=primary_image,
+                    metadata=serialize_visual_decision(visual_decision, applied_mode="real"),
+                )
+                image_assets.append(asdict(real_asset))
+            else:
+                variations = generate_image_variations(visual_decision.prompt, item.platform, config.image_style)
+                image_assets.extend(asdict(asset) for asset in variations)
+                primary_image = next((asset.path or asset.url for asset in variations if asset.path or asset.url), "")
 
             if auto_publish:
-                primary_image = next((asset.path or asset.url for asset in variations if asset.path or asset.url), "")
                 publish_result = publish_post(
                     platform=item.platform,
                     content=item.persuasive_text,

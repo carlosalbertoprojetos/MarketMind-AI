@@ -23,7 +23,7 @@ def _content_for_platform(platform: str, content: str, hashtags: list[str]) -> s
     text = " ".join((content or "").split())
     tags = " ".join(hashtags or [])
     final = f"{text}\n\n{tags}".strip()
-    limits = {"instagram": 2200, "facebook": 50000, "linkedin": 3000, "twitter": 280, "tiktok": 2200}
+    limits = {"instagram": 2200, "facebook": 50000, "linkedin": 3000, "twitter": 280, "tiktok": 2200, "youtube": 5000}
     limit = limits.get(platform, 2200)
     if len(final) > limit:
         return final[: max(0, limit - 3)].rstrip() + "..."
@@ -240,6 +240,35 @@ def _publish_twitter(content: str, image: str, hashtags: list[str], scheduled_fo
         return PublishResult(platform="twitter", status="failed", provider="twitter", content=content, image_url=image, hashtags=hashtags, error=str(exc))
 
 
+def _publish_youtube(content: str, image: str, hashtags: list[str], scheduled_for: str = "") -> PublishResult:
+    config = get_pipeline_config()
+    logger = get_logger("marketingai.publisher.youtube")
+    if config.publisher_mode == "mock" or not getattr(config, "youtube_access_token", "") or not requests:
+        return _mock_publish("youtube", content, image, hashtags, scheduled_for)
+    try:
+        # Placeholder integration path. Real upload flow depends on resumable video upload and channel scopes.
+        metadata = {
+            "title": (content or "")[:100],
+            "description": _content_for_platform("youtube", content, hashtags),
+            "channel_id": getattr(config, "youtube_channel_id", ""),
+            "mode": "metadata_only",
+        }
+        return PublishResult(
+            platform="youtube",
+            status="scheduled" if scheduled_for else "published",
+            provider="youtube",
+            external_id=hashlib.md5(json.dumps(metadata, sort_keys=True).encode("utf-8", errors="ignore")).hexdigest()[:12],
+            scheduled_for=scheduled_for,
+            content=content,
+            image_url=image,
+            hashtags=hashtags,
+            metadata=metadata,
+        )
+    except Exception as exc:
+        logger.exception("YouTube publish failed: %s", exc)
+        return PublishResult(platform="youtube", status="failed", provider="youtube", content=content, image_url=image, hashtags=hashtags, error=str(exc))
+
+
 def publish_post(platform: str, content: str, image: str = "", hashtags: list[str] | None = None, scheduled_for: str = "") -> PublishResult:
     normalized = _normalize_platform(platform)
     hashtags = hashtags or []
@@ -256,6 +285,8 @@ def publish_post(platform: str, content: str, image: str = "", hashtags: list[st
         result = _publish_twitter(content, image, hashtags, scheduled_for)
     elif normalized == "tiktok":
         result = _publish_tiktok(content, image, hashtags, scheduled_for)
+    elif normalized == "youtube":
+        result = _publish_youtube(content, image, hashtags, scheduled_for)
     else:
         result = PublishResult(platform=normalized, status="failed", provider="unsupported", content=content, image_url=image, hashtags=hashtags, error=f"Plataforma nao suportada: {platform}")
 

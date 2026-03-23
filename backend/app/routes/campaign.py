@@ -28,16 +28,165 @@ from app.schemas.campaign import CampaignCreate, CampaignUpdate, CampaignRespons
 from app.schemas.preview import CampaignPreviewRequest, CampaignPreviewResponse, PostPreviewResponse
 from app.schemas.media import CampaignAssetsResponse, CampaignAssetItem, CampaignAssetsExportSelectedRequest
 from app.schemas.generation import CampaignGenerationHistoryResponse, CampaignGenerationItem
+from app.schemas.final_pipeline import (
+    FinalContentPipelineRequest,
+    FinalContentPipelineResponse,
+    FinalContentPublishResponse,
+    SavedFinalContentItemResponse,
+    SavedFinalContentListResponse,
+    SavedFinalContentResponse,
+)
 from app.services.campaign_service import (
     create_campaign,
+    get_campaign_platforms,
     get_campaigns_by_user,
     get_campaigns_by_user_paginated,
     get_campaign_by_id,
     update_campaign,
     delete_campaign,
 )
+from app.services.saved_content_service import (
+    create_saved_content,
+    delete_saved_content,
+    get_latest_saved_campaign_content,
+    get_saved_content_by_id,
+    list_saved_contents,
+    parse_saved_content_platforms,
+    parse_saved_content_publish_results,
+    parse_saved_content_result,
+)
 
 router = APIRouter(prefix="/campaign", tags=["campaign"])
+
+
+def _serialize_campaign(campaign: Campaign) -> CampaignResponse:
+    return CampaignResponse.model_validate(
+        {
+            "id": campaign.id,
+            "user_id": campaign.user_id,
+            "title": campaign.title,
+            "content": campaign.content,
+            "platform": campaign.platform,
+            "platforms": get_campaign_platforms(campaign),
+            "schedule": campaign.schedule,
+            "reminder_sent_at": campaign.reminder_sent_at,
+            "created_at": campaign.created_at,
+            "updated_at": campaign.updated_at,
+        }
+    )
+
+
+def _model_dump(model):
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    if hasattr(model, "dict"):
+        return model.dict()
+    return dict(model)
+
+
+def _saved_at_value(record) -> datetime | None:
+    return getattr(record, "created_at", None)
+
+
+def _serialize_saved_preview_response(response: CampaignPreviewResponse, record) -> CampaignPreviewResponse:
+    response.saved_content_id = record.id
+    response.saved_at = _saved_at_value(record)
+    return response
+
+
+def _build_saved_final_content_item(record) -> SavedFinalContentItemResponse:
+    payload = parse_saved_content_result(record)
+    outputs = payload.get("outputs") if isinstance(payload, dict) else []
+    return SavedFinalContentItemResponse(
+        id=record.id,
+        title=record.title,
+        theme=record.theme,
+        objective=record.objective,
+        audience=record.audience,
+        style=record.style,
+        platforms=parse_saved_content_platforms(record),
+        post_count=len(outputs or []),
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _build_saved_final_content_response(record) -> SavedFinalContentResponse:
+    payload = parse_saved_content_result(record)
+    payload["saved_content_id"] = record.id
+    payload["saved_at"] = _saved_at_value(record)
+    payload["id"] = record.id
+    payload["title"] = record.title
+    payload["style"] = record.style
+    payload["platforms"] = parse_saved_content_platforms(record)
+    payload["source_type"] = record.source_type
+    payload["publish_results"] = parse_saved_content_publish_results(record)
+    payload["updated_at"] = record.updated_at
+    return SavedFinalContentResponse(**payload)
+
+
+def _save_campaign_preview(db: Session, current_user: User, campaign: Campaign, response: CampaignPreviewResponse) -> CampaignPreviewResponse:
+    record = create_saved_content(
+        db,
+        user_id=current_user.id,
+        source_type="campaign",
+        campaign_id=campaign.id,
+        title=campaign.title,
+        objective=campaign.platform,
+        result_payload=_model_dump(response),
+        platforms=sorted({post.platform for post in response.posts}),
+    )
+    return _serialize_saved_preview_response(response, record)
+
+
+def _save_final_content_result(db: Session, current_user: User, data: FinalContentPipelineRequest, payload: dict, publish_results: list[dict] | None = None):
+    return create_saved_content(
+        db,
+        user_id=current_user.id,
+        source_type="final_content",
+        title=data.theme,
+        theme=data.theme,
+        objective=data.objective,
+        audience=data.audience,
+        style=data.style,
+        platforms=data.platforms,
+        request_payload={
+            "theme": data.theme,
+            "objective": data.objective,
+            "audience": data.audience,
+            "platforms": data.platforms,
+            "style": data.style,
+        },
+        result_payload=payload,
+        publish_results=publish_results or [],
+    )
+
+
+def _run_final_content_pipeline_or_422(data: FinalContentPipelineRequest):
+    root = Path(__file__).resolve().parent.parent.parent.parent
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    try:
+        from ia_pipeline.pipelines.final_content_pipeline import run_final_content_pipeline
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Pipeline final de conteudo nao disponivel.",
+        )
+
+    try:
+        return run_final_content_pipeline(
+            theme=data.theme,
+            objective=data.objective,
+            audience=data.audience,
+            platforms=data.platforms,
+            style=data.style,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Falha ao executar o pipeline final: {exc}",
+        )
 
 
 def _extract_url_from_campaign_content(content: str | None) -> str | None:
@@ -45,7 +194,8 @@ def _extract_url_from_campaign_content(content: str | None) -> str | None:
         return None
     s = str(content).strip()
     if s.upper().startswith("URL:"):
-        candidate = s[4:].strip()
+        first_line = s.splitlines()[0]
+        candidate = first_line[4:].strip()
         return candidate if re.match(r"^https?://", candidate, re.IGNORECASE) else None
     if re.match(r"^https?://", s, re.IGNORECASE):
         return s
@@ -53,6 +203,74 @@ def _extract_url_from_campaign_content(content: str | None) -> str | None:
     if m:
         return m.group(1)
     return None
+
+
+def _extract_additional_urls_from_campaign_content(content: str | None) -> list[str]:
+    if not content:
+        return []
+    s = str(content)
+    block = re.search(r"(?:^|\n)ADDITIONAL_URLS:\s*\n([\s\S]*?)\nEND_ADDITIONAL_URLS(?:\n|$)", s, re.IGNORECASE)
+    if not block:
+        return []
+    urls: list[str] = []
+    for line in block.group(1).splitlines():
+        candidate = line.strip()
+        if re.match(r"^https?://", candidate, re.IGNORECASE):
+            urls.append(candidate)
+    return urls
+
+
+def _extract_credentials_id_from_campaign_content(content: str | None) -> int | None:
+    if not content:
+        return None
+    s = str(content)
+    match = re.search(r"(?:^|\n)CREDENTIALS_ID:\s*(\d+)(?:\n|$)", s, re.IGNORECASE)
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_platforms_from_campaign_content(content: str | None) -> list[str]:
+    if not content:
+        return []
+    s = str(content)
+    block = re.search(r"(?:^|\n)PLATFORMS:\s*\n([\s\S]*?)\nEND_PLATFORMS(?:\n|$)", s, re.IGNORECASE)
+    if not block:
+        return []
+    platforms: list[str] = []
+    seen: set[str] = set()
+    for line in block.group(1).splitlines():
+        candidate = line.strip().lower()
+        if not candidate:
+            continue
+        if candidate == "x":
+            candidate = "twitter"
+        if candidate not in ("instagram", "facebook", "linkedin", "twitter", "tiktok", "youtube"):
+            continue
+        if candidate not in seen:
+            seen.add(candidate)
+            platforms.append(candidate)
+    return platforms
+
+
+def _normalize_compare_url(value: str | None) -> str:
+    if not value:
+        return ""
+    normalized = str(value).strip().rstrip("/")
+    return normalized.lower()
+
+
+def _validate_analysis_target(url: str, login_url: str | None = None) -> None:
+    normalized_url = _normalize_compare_url(url)
+    normalized_login_url = _normalize_compare_url(login_url)
+    if normalized_url and normalized_login_url and normalized_url == normalized_login_url:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A URL principal de analise nao pode ser a mesma URL de login. Use a tela de login apenas em 'URL de login' e informe uma tela interna como URL principal.",
+        )
 
 
 def _preview_image_query_urls(output_base: Path, image_paths: list[str]) -> list[str]:
@@ -74,7 +292,7 @@ def _preview_image_query_urls(output_base: Path, image_paths: list[str]) -> list
     return urls
 
 
-def _build_preview_response(root: Path, out: object, url: str) -> CampaignPreviewResponse:
+def _build_preview_response(root: Path, out: object, url: str, *, saved_content_id: int | None = None, saved_at: datetime | None = None) -> CampaignPreviewResponse:
     output_base = root / "ia_pipeline" / "output"
     posts = []
     for p in out.posts:
@@ -94,6 +312,15 @@ def _build_preview_response(root: Path, out: object, url: str) -> CampaignPrevie
                 screen_type=getattr(p, "screen_type", "generic") or "generic",
                 screen_label=getattr(p, "screen_label", "") or "",
                 strategy_summary=getattr(p, "strategy_summary", "") or "",
+                content_format=getattr(p, "content_format", "") or "",
+                primary_cta=getattr(p, "primary_cta", "") or "",
+                platform_rules=getattr(p, "platform_rules", {}) or {},
+                structured_output=getattr(p, "structured_output", {}) or {},
+                hooks=getattr(p, "hooks", []) or [],
+                narrative_structure=getattr(p, "narrative_structure", {}) or {},
+                cta_options=getattr(p, "cta_options", []) or [],
+                ab_variations=getattr(p, "ab_variations", []) or [],
+                visual_decision=getattr(p, "visual_decision", {}) or {},
             )
         )
     return CampaignPreviewResponse(
@@ -104,6 +331,8 @@ def _build_preview_response(root: Path, out: object, url: str) -> CampaignPrevie
         copy_variations=getattr(out, "copy_variations", []) or [],
         visual_suggestions=getattr(out, "visual_suggestions", []) or [],
         error=None,
+        saved_content_id=saved_content_id,
+        saved_at=saved_at,
     )
 
 
@@ -141,13 +370,20 @@ def _load_generation_history(root: Path, user_id: int, campaign_id: int) -> list
 
 def _append_generation_history(root: Path, user_id: int, campaign_id: int, source_url: str, out: object) -> None:
     asset_count = 0
+    platforms: list[str] = []
+    seen_platforms: set[str] = set()
     for p in out.posts:
         asset_count += len(p.image_paths or [])
+        platform_name = str(getattr(p, "platform", "") or "").strip().lower()
+        if platform_name and platform_name not in seen_platforms:
+            seen_platforms.add(platform_name)
+            platforms.append(platform_name)
     item = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_url": source_url,
         "post_count": len(out.posts or []),
         "asset_count": asset_count,
+        "platforms": platforms,
     }
     history = _load_generation_history(root, user_id, campaign_id)
     history.insert(0, item)
@@ -196,7 +432,7 @@ def _collect_campaign_assets(
             asset_kind = "screenshot" if "/screenshots/" in f"/{rel}/" else "generated"
             asset_platform = None
             name = full.stem.lower()
-            for p_name in ("instagram", "facebook", "linkedin", "twitter", "tiktok"):
+            for p_name in ("instagram", "facebook", "linkedin", "twitter", "tiktok", "youtube"):
                 if f"_{p_name}_" in name or name.endswith(f"_{p_name}"):
                     asset_platform = p_name
                     break
@@ -233,7 +469,7 @@ def create(
     current_user: User = Depends(get_current_user),
 ):
     """Cria nova campanha para o usuário logado."""
-    return create_campaign(db, current_user.id, data)
+    return _serialize_campaign(create_campaign(db, current_user.id, data))
 
 
 @router.get("/upcoming", response_model=list[CampaignResponse])
@@ -257,7 +493,7 @@ def list_upcoming_campaigns(
         .order_by(Campaign.schedule)
         .all()
     )
-    return campaigns
+    return [_serialize_campaign(item) for item in campaigns]
 
 
 @router.post("/{campaign_id}/remind", response_model=CampaignResponse)
@@ -274,7 +510,7 @@ def mark_reminder_sent(
     campaign.reminder_sent_at = datetime.utcnow()
     db.commit()
     db.refresh(campaign)
-    return campaign
+    return _serialize_campaign(campaign)
 
 
 @router.get("", response_model=CampaignListResponse)
@@ -295,7 +531,7 @@ def list_campaigns(
     items, total = get_campaigns_by_user_paginated(
         db, current_user.id, limit=limit, offset=offset, platform=platform, search=search, sort=sort
     )
-    return CampaignListResponse(items=items, total=total, limit=limit, offset=offset)
+    return CampaignListResponse(items=[_serialize_campaign(item) for item in items], total=total, limit=limit, offset=offset)
 
 
 @router.get("/{campaign_id}", response_model=CampaignResponse)
@@ -308,7 +544,7 @@ def get_campaign(
     campaign = get_campaign_by_id(db, campaign_id, current_user.id)
     if not campaign:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campanha não encontrada")
-    return campaign
+    return _serialize_campaign(campaign)
 
 
 @router.patch("/{campaign_id}", response_model=CampaignResponse)
@@ -322,7 +558,7 @@ def patch_campaign(
     campaign = get_campaign_by_id(db, campaign_id, current_user.id)
     if not campaign:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campanha não encontrada")
-    return update_campaign(db, campaign, data)
+    return _serialize_campaign(update_campaign(db, campaign, data))
 
 
 @router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -354,6 +590,8 @@ def preview_from_url(
     if not login_url and (data.login_url or data.login_username or data.login_password):
         login_url, login_user, login_pass = data.login_url, data.login_username, data.login_password
 
+    _validate_analysis_target(data.url, login_url)
+
     root = Path(__file__).resolve().parent.parent.parent.parent
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
@@ -368,14 +606,17 @@ def preview_from_url(
         out = run_pipeline(
             url=data.url,
             campaign_title=data.campaign_title,
-            platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin", "twitter", "tiktok"]),
+            platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin", "twitter", "tiktok", "youtube"]),
             login_url=login_url,
             login_user=login_user,
             login_pass=login_pass,
             output_dir=_preview_output_dir(root, current_user.id),
+            source_urls=data.source_urls,
             max_crawl_pages=data.max_crawl_pages,
             max_crawl_depth=data.max_crawl_depth,
             objective=data.objective,
+            follow_internal_links=data.follow_internal_links,
+            capture_scroll_sections=data.capture_scroll_sections,
         )
     except Exception as e:
         raise HTTPException(
@@ -428,7 +669,10 @@ def orchestrate_marketing_pipeline(
         login_url=data.login_url,
         login_username=data.login_username,
         login_password=data.login_password,
+        source_urls=data.source_urls,
         auto_publish=os.environ.get("MARKETINGAI_AUTO_PUBLISH_DEFAULT", "false").lower() in ("1", "true", "yes"),
+        follow_internal_links=data.follow_internal_links,
+        capture_scroll_sections=data.capture_scroll_sections,
     )
     return asdict(result)
 
@@ -465,8 +709,169 @@ def run_multi_agent_marketing_pipeline(
         auto_publish=os.environ.get("MARKETINGAI_AUTO_PUBLISH_DEFAULT", "false").lower() in ("1", "true", "yes"),
         max_cycles=int(os.environ.get("MARKETINGAI_AGENT_MAX_CYCLES", "2")),
         debug=os.environ.get("MARKETINGAI_AGENT_DEBUG", "false").lower() in ("1", "true", "yes"),
+        source_urls=data.source_urls,
+        follow_internal_links=data.follow_internal_links,
+        capture_scroll_sections=data.capture_scroll_sections,
     )
     return result
+
+
+@router.post("/final-content", response_model=FinalContentPipelineResponse)
+@limiter.limit("20/minute")
+def run_final_content_pipeline_route(
+    request: Request,
+    data: FinalContentPipelineRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Gera conteudo multiplataforma a partir de tema, objetivo e publico."""
+    result = _run_final_content_pipeline_or_422(data)
+    payload = asdict(result)
+    record = _save_final_content_result(db, current_user, data, payload)
+    return {**payload, "saved_content_id": record.id, "saved_at": _saved_at_value(record)}
+
+
+@router.post("/final-content/export")
+@limiter.limit("10/minute")
+def export_final_content_pipeline_route(
+    request: Request,
+    data: FinalContentPipelineRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """Exporta o resultado do pipeline final em ZIP com JSON e TXT por plataforma."""
+    result = _run_final_content_pipeline_or_422(data)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        payload = asdict(result)
+        zf.writestr("manifest.json", json.dumps(payload, ensure_ascii=True, indent=2).encode("utf-8"))
+        for item in result.outputs:
+            prefix = item.platform.replace(" ", "_")
+            zf.writestr(f"{prefix}/content.txt", item.full_content.encode("utf-8"))
+            zf.writestr(f"{prefix}/image_prompt.txt", item.image_prompt.encode("utf-8"))
+            zf.writestr(
+                f"{prefix}/metadata.json",
+                json.dumps(asdict(item), ensure_ascii=True, indent=2).encode("utf-8"),
+            )
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=marketingai-final-content.zip"},
+    )
+
+
+@router.post("/final-content/publish", response_model=FinalContentPublishResponse)
+@limiter.limit("10/minute")
+def publish_final_content_pipeline_route(
+    request: Request,
+    data: FinalContentPipelineRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Executa o pipeline final e publica os conteudos gerados nas plataformas selecionadas."""
+    result = _run_final_content_pipeline_or_422(data)
+    root = Path(__file__).resolve().parent.parent.parent.parent
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    try:
+        from ia_pipeline.publisher.service import publish_post
+    except ImportError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Modulo de publicacao nao disponivel.",
+        )
+
+    publish_results = []
+    for item in result.outputs:
+        publish_result = publish_post(
+            platform=item.platform,
+            content=item.full_content,
+            image="",
+            hashtags=item.hashtags,
+        )
+        publish_results.append(asdict(publish_result))
+
+    payload = asdict(result)
+    record = _save_final_content_result(db, current_user, data, payload, publish_results=publish_results)
+    return {
+        **payload,
+        "publish_results": publish_results,
+        "saved_content_id": record.id,
+        "saved_at": _saved_at_value(record),
+    }
+
+
+@router.get("/final-content/saved", response_model=SavedFinalContentListResponse)
+def list_saved_final_content_route(
+    limit: int = 20,
+    offset: int = 0,
+    search: str | None = None,
+    platform: str | None = None,
+    platforms: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    limit = min(max(1, limit), 100)
+    offset = max(0, offset)
+    requested_platforms = [item.strip() for item in str(platforms or '').split(',') if item.strip()]
+    records, total = list_saved_contents(
+        db,
+        current_user.id,
+        source_type="final_content",
+        limit=limit,
+        offset=offset,
+        search=search,
+        platform=platform,
+        platforms=requested_platforms,
+        created_from=created_from,
+        created_to=created_to,
+    )
+    items = [_build_saved_final_content_item(record) for record in records]
+    return SavedFinalContentListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/final-content/saved/{saved_content_id}", response_model=SavedFinalContentResponse)
+def get_saved_final_content_route(
+    saved_content_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    record = get_saved_content_by_id(db, saved_content_id, current_user.id, source_type="final_content")
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conteudo salvo nao encontrado")
+    return _build_saved_final_content_response(record)
+
+
+@router.delete("/final-content/saved/{saved_content_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_saved_final_content_route(
+    saved_content_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    record = get_saved_content_by_id(db, saved_content_id, current_user.id, source_type="final_content")
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conteudo salvo nao encontrado")
+    delete_saved_content(db, record)
+
+
+@router.get("/{campaign_id}/saved-posts/latest", response_model=CampaignPreviewResponse)
+def get_latest_saved_campaign_preview(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    campaign = get_campaign_by_id(db, campaign_id, current_user.id)
+    if not campaign:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campanha nao encontrada")
+    record = get_latest_saved_campaign_content(db, current_user.id, campaign_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum post salvo para esta campanha")
+    payload = parse_saved_content_result(record)
+    payload["saved_content_id"] = record.id
+    payload["saved_at"] = _saved_at_value(record)
+    return CampaignPreviewResponse(**payload)
 
 
 @router.post("/{campaign_id}/generate", response_model=CampaignPreviewResponse)
@@ -485,11 +890,20 @@ def generate_campaign_content_from_saved_url(
     if not campaign:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campanha não encontrada")
     source_url = _extract_url_from_campaign_content(campaign.content)
+    source_urls = _extract_additional_urls_from_campaign_content(campaign.content)
+    credentials_id = _extract_credentials_id_from_campaign_content(campaign.content)
+    requested_platforms = _extract_platforms_from_campaign_content(campaign.content)
+    if not requested_platforms:
+        requested_platforms = [campaign.platform] if campaign.platform else ["instagram", "facebook", "linkedin", "twitter", "tiktok", "youtube"]
     if not source_url:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Campanha sem URL válida. Salve a campanha com o campo URL do site/produto preenchido.",
         )
+    login_url, login_user, login_pass = None, None, None
+    if credentials_id:
+        from app.services.credentials_service import get_plain_credentials
+        login_url, login_user, login_pass = get_plain_credentials(db, credentials_id, current_user.id)
 
     root = Path(__file__).resolve().parent.parent.parent.parent
     if str(root) not in sys.path:
@@ -508,10 +922,16 @@ def generate_campaign_content_from_saved_url(
         out = run_pipeline(
             url=source_url,
             campaign_title=campaign.title,
-            platforms=["instagram", "facebook", "linkedin", "twitter", "tiktok"],
+            platforms=requested_platforms,
+            login_url=login_url,
+            login_user=login_user,
+            login_pass=login_pass,
             output_dir=output_dir,
-            max_crawl_pages=int(os.environ.get("MARKETINGAI_MAX_CRAWL_PAGES", "5")),
-            max_crawl_depth=int(os.environ.get("MARKETINGAI_MAX_CRAWL_DEPTH", "2")),
+            source_urls=source_urls,
+            max_crawl_pages=max(int(os.environ.get("MARKETINGAI_MAX_CRAWL_PAGES", "5")), 1 + len(source_urls)),
+            max_crawl_depth=0,
+            follow_internal_links=False,
+            capture_scroll_sections=True,
         )
     except Exception as e:
         raise HTTPException(
@@ -521,7 +941,8 @@ def generate_campaign_content_from_saved_url(
     if out.error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=out.error)
     _append_generation_history(root, current_user.id, campaign.id, source_url, out)
-    return _build_preview_response(root, out, source_url)
+    response = _build_preview_response(root, out, source_url)
+    return _save_campaign_preview(db, current_user, campaign, response)
 
 
 @router.get("/{campaign_id}/assets", response_model=CampaignAssetsResponse)
@@ -637,6 +1058,53 @@ def export_campaign_assets_selected(
     )
 
 
+@router.post("/{campaign_id}/assets/delete-selected")
+def delete_campaign_assets_selected(
+    campaign_id: int,
+    data: CampaignAssetsExportSelectedRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    campaign = get_campaign_by_id(db, campaign_id, current_user.id)
+    if not campaign:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Campanha nao encontrada")
+    if not data.paths:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Selecione ao menos um ativo para excluir")
+
+    root = Path(__file__).resolve().parent.parent.parent.parent
+    output_base = (root / "ia_pipeline" / "output").resolve()
+    output_dir = _campaign_output_dir(root, current_user.id, campaign.id).resolve()
+    deleted_count = 0
+
+    for rel in data.paths:
+        safe_rel = str(rel).lstrip("/").replace("\\", "/")
+        full = (output_base / safe_rel).resolve()
+        if not str(full).startswith(str(output_dir)):
+            continue
+        if not full.is_file():
+            continue
+        try:
+            full.unlink()
+            deleted_count += 1
+            parent = full.parent
+            while parent != output_dir and parent.exists():
+                try:
+                    parent.rmdir()
+                except OSError:
+                    break
+                parent = parent.parent
+        except OSError:
+            continue
+
+    if deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum ativo valido selecionado para exclusao")
+
+    return {
+        "deleted_count": deleted_count,
+        "campaign_id": campaign.id,
+    }
+
+
 @router.get("/{campaign_id}/generations", response_model=CampaignGenerationHistoryResponse)
 def get_campaign_generation_history(
     campaign_id: int,
@@ -657,6 +1125,7 @@ def get_campaign_generation_history(
                     source_url=str(row.get("source_url", "")),
                     post_count=int(row.get("post_count", 0)),
                     asset_count=int(row.get("asset_count", 0)),
+                    platforms=[str(item) for item in (row.get("platforms") or []) if str(item).strip()],
                 )
             )
         except Exception:
@@ -683,6 +1152,8 @@ def export_campaign_package(
     if not login_url and (data.login_url or data.login_username or data.login_password):
         login_url, login_user, login_pass = data.login_url, data.login_username, data.login_password
 
+    _validate_analysis_target(data.url, login_url)
+
     root = Path(__file__).resolve().parent.parent.parent.parent
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
@@ -699,14 +1170,17 @@ def export_campaign_package(
             out = run_pipeline(
                 url=data.url,
                 campaign_title=data.campaign_title,
-                platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin", "twitter", "tiktok"]),
+                platforms=[data.target_platform] if data.target_platform else (data.platforms or ["instagram", "facebook", "linkedin", "twitter", "tiktok", "youtube"]),
                 login_url=login_url,
                 login_user=login_user,
                 login_pass=login_pass,
                 output_dir=export_dir,
+                source_urls=data.source_urls,
                 max_crawl_pages=data.max_crawl_pages,
                 max_crawl_depth=data.max_crawl_depth,
                 objective=data.objective,
+                follow_internal_links=data.follow_internal_links,
+                capture_scroll_sections=data.capture_scroll_sections,
             )
             if out.error:
                 raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=out.error)
@@ -717,13 +1191,23 @@ def export_campaign_package(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Falha ao executar o pipeline: {e}",
             )
+        requested_platforms = sorted({str(p.platform).lower() for p in out.posts if getattr(p, "platform", None)})
+        manifest = {
+            "campaign_title": data.campaign_title,
+            "source_url": data.url,
+            "source_urls": data.source_urls or [],
+            "platforms": requested_platforms,
+            "post_count": len(out.posts or []),
+        }
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8"))
+            zf.writestr("platforms.txt", "\n".join(requested_platforms).encode("utf-8"))
             for idx, p in enumerate(out.posts):
                 prefix = f"{p.platform.lower().replace(' ', '_')}_{idx + 1:03d}"
                 src = getattr(p, "source_page_url", "") or ""
                 ptitle = getattr(p, "page_title", "") or ""
-                caption_lines = [f"Página: {src}", f"Título site: {ptitle}", "", p.title, "", p.text, "", " ".join(p.hashtags), ""]
+                caption_lines = [f"Pagina: {src}", f"Titulo site: {ptitle}", f"Plataformas do pacote: {', '.join(requested_platforms)}", "", p.title, "", p.text, "", " ".join(p.hashtags), ""]
                 caption_lines.extend(f"{i+1}. {s}" for i, s in enumerate(p.steps))
                 zf.writestr(f"{prefix}/caption.txt", "\n".join(caption_lines).encode("utf-8"))
                 for i, img_path in enumerate(p.image_paths):
@@ -760,4 +1244,11 @@ def serve_preview_image(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Arquivo n?o encontrado")
     guessed, _ = mimetypes.guess_type(str(full))
     media_type = guessed or "application/octet-stream"
+    try:
+        with full.open("rb") as handle:
+            head = handle.read(256).lstrip()
+        if head.startswith(b"<?xml") or head.startswith(b"<svg"):
+            media_type = "image/svg+xml"
+    except OSError:
+        pass
     return FileResponse(full, media_type=media_type)

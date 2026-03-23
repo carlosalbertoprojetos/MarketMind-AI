@@ -1,6 +1,7 @@
 """Modelos de geracao de conteudo."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -21,3 +22,11 @@ class GeneratedContentItem:
     copy_variations: list[CopyVariation] = field(default_factory=list)
     hashtags: list[str] = field(default_factory=list)
     visual_suggestions: list[str] = field(default_factory=list)
+    content_format: str = ""
+    primary_cta: str = ""
+    platform_rules: dict[str, Any] = field(default_factory=dict)
+    structured_output: dict[str, Any] = field(default_factory=dict)
+    hooks: list[str] = field(default_factory=list)
+    narrative_structure: dict[str, str] = field(default_factory=dict)
+    cta_options: list[str] = field(default_factory=list)
+    ab_variations: list[CopyVariation] = field(default_factory=list)

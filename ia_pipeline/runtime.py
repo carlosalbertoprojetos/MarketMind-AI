@@ -30,6 +30,8 @@ class PipelineConfig:
     tiktok_access_token: str = os.environ.get("TIKTOK_ACCESS_TOKEN", "")
     tiktok_account_id: str = os.environ.get("TIKTOK_ACCOUNT_ID", "")
     tiktok_privacy_level: str = os.environ.get("TIKTOK_PRIVACY_LEVEL", "PUBLIC_TO_EVERYONE")
+    youtube_access_token: str = os.environ.get("YOUTUBE_ACCESS_TOKEN", "")
+    youtube_channel_id: str = os.environ.get("YOUTUBE_CHANNEL_ID", "")
     queue_retry_limit: int = int(os.environ.get("MARKETINGAI_QUEUE_RETRY_LIMIT", "3"))
     queue_retry_delay_seconds: int = int(os.environ.get("MARKETINGAI_QUEUE_RETRY_DELAY_SECONDS", "5"))
     max_crawl_pages: int = int(os.environ.get("MARKETINGAI_MAX_CRAWL_PAGES", "5"))

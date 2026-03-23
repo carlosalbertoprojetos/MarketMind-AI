@@ -77,10 +77,13 @@ def run_multi_agent_pipeline(
     login_url: str | None = None,
     login_username: str | None = None,
     login_password: str | None = None,
+    source_urls: list[str] | None = None,
     performance_data: list[dict] | None = None,
     auto_publish: bool = False,
     max_cycles: int | None = None,
     debug: bool = False,
+    follow_internal_links: bool = False,
+    capture_scroll_sections: bool = True,
 ) -> dict:
     config = get_pipeline_config()
     logger = get_logger("marketingai.agents.orchestrator")
@@ -98,9 +101,12 @@ def run_multi_agent_pipeline(
         "login_url": login_url,
         "login_username": login_username,
         "login_password": login_password,
+        "source_urls": source_urls or [],
         "performance_data": performance_data or [],
         "auto_publish": auto_publish,
         "debug": debug,
+        "follow_internal_links": follow_internal_links,
+        "capture_scroll_sections": capture_scroll_sections,
     }
 
     try:

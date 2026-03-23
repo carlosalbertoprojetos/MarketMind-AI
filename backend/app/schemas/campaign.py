@@ -1,8 +1,6 @@
-"""
-Schemas de campanha: criação, listagem, resposta.
-"""
+﻿"""Schemas de campanha: criação, listagem, resposta."""
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CampaignCreate(BaseModel):
@@ -25,6 +23,7 @@ class CampaignResponse(BaseModel):
     title: str
     content: str | None = None
     platform: str | None = None
+    platforms: list[str] = Field(default_factory=list)
     schedule: datetime | None = None
     reminder_sent_at: datetime | None = None
     created_at: datetime | None = None

@@ -31,7 +31,10 @@ class DevAgent(BaseAgent):
             login_url=data.get("login_url"),
             login_username=data.get("login_username"),
             login_password=data.get("login_password"),
+            source_urls=data.get("source_urls"),
             auto_publish=bool(data.get("auto_publish", False)),
             performance_data=data.get("performance_data"),
+            follow_internal_links=bool(data.get("follow_internal_links", False)),
+            capture_scroll_sections=bool(data.get("capture_scroll_sections", True)),
         )
         return asdict(result)

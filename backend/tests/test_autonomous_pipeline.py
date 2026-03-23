@@ -15,6 +15,7 @@ os.environ["MARKETINGAI_MAX_CRAWL_PAGES"] = "2"
 os.environ["MARKETINGAI_MAX_CRAWL_DEPTH"] = "1"
 
 from ia_pipeline.ai_image.service import generate_image_variations, prompt_builder
+from ia_pipeline.services.visual_service import decide_visual_source
 from ia_pipeline.autonomous.service import run_autonomous_cycle
 from ia_pipeline.orchestrator.service import run_pipeline as orchestrated_run_pipeline
 from ia_pipeline.publisher.service import publish_post, schedule_posts
@@ -26,6 +27,38 @@ def test_prompt_builder_and_mock_image_variations():
     assets = generate_image_variations("Sistema SaaS de gestao empresarial", "instagram", "modern", provider="mock")
     assert len(assets) >= 1
     assert all(asset.provider == "mock" for asset in assets)
+
+
+def test_visual_service_decides_between_real_and_ai_based_on_context():
+    real_decision = decide_visual_source(
+        platform="linkedin",
+        objective="conversao",
+        screen_type="product",
+        screen_label="Painel de estoque",
+        headline="Painel com visao operacional",
+        caption="Mostra entradas, fluxo e indicadores.",
+        audience="gestores de operacao",
+        value_proposition="Controle operacional com menos friccao",
+        differentiator="painel unificado",
+        source_images=["C:/tmp/painel.png"],
+    )
+    ai_decision = decide_visual_source(
+        platform="instagram",
+        objective="branding",
+        screen_type="home",
+        screen_label="Pagina institucional",
+        headline="Uma marca com narrativa visual forte",
+        caption="Posicionamento, conceito e presenca.",
+        audience="times de marketing",
+        value_proposition="Presenca digital memoravel",
+        differentiator="narrativa de marca",
+        source_images=[],
+    )
+    assert real_decision.selected_mode == "real"
+    assert real_decision.recommended_source_path
+    assert real_decision.prompt
+    assert ai_decision.selected_mode == "ai"
+    assert ai_decision.prompt
 
 
 def test_publisher_mock_publish_and_schedule():
@@ -41,16 +74,21 @@ def test_publisher_mock_publish_and_schedule():
     assert tiktok.status == "published"
     assert tiktok.provider == "mock"
 
+    youtube = publish_post("youtube", "Video com CTA", image="", hashtags=["#youtube"])
+    assert youtube.status == "published"
+    assert youtube.provider == "mock"
+
     batch = schedule_posts(
         [
             {"platform": "instagram", "content": "Post 1", "hashtags": ["#growth"]},
             {"platform": "facebook", "content": "Post 2", "hashtags": ["#community"]},
             {"platform": "tiktok", "content": "Post 3", "hashtags": ["#video"]},
             {"platform": "x", "content": "Post 4", "hashtags": ["#brand"]},
+            {"platform": "youtube", "content": "Post 5", "hashtags": ["#video"]},
         ]
     )
     assert batch.status in {"completed", "partial_failure"}
-    assert len(batch.items) == 4
+    assert len(batch.items) == 5
 
 
 def test_autonomous_cycle_returns_improvements():

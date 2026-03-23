@@ -77,7 +77,7 @@ export default function CredentialsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
-      <main className="max-w-4xl mx-auto p-6">
+      <main className="max-w-7xl mx-auto p-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Credenciais</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
           Salve credenciais de login para usar em pré-visualizações e exportação de campanhas (sites que exigem login).

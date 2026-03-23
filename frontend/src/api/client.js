@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cliente HTTP para a API MarketingAI.
  * Usa cookies HttpOnly para sessao quando disponiveis.
  */
@@ -98,6 +98,16 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(objectUrl)
 }
 
+function buildCollectionOptions(opts = {}) {
+  return {
+    source_urls: opts.sourceUrls ?? [],
+    follow_internal_links: opts.followInternalLinks ?? false,
+    capture_scroll_sections: opts.captureScrollSections ?? true,
+    max_crawl_pages: opts.maxCrawlPages ?? Math.max(1, 1 + (opts.sourceUrls?.length || 0)),
+    max_crawl_depth: opts.maxCrawlDepth ?? 0,
+  }
+}
+
 export async function register(email, password) {
   return requestJson('/auth/register', {
     method: 'POST',
@@ -149,7 +159,8 @@ export async function logoutSession() {
 
 export async function getCampaigns(limit = 50, offset = 0, filters = {}) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-  if (filters.platform != null && filters.platform !== '') params.set('platform', String(filters.platform))
+  if (Array.isArray(filters.platforms) && filters.platforms.length > 0) params.set('platforms', filters.platforms.join(','))
+  else if (filters.platform != null && filters.platform !== '') params.set('platform', String(filters.platform))
   if (filters.search != null && String(filters.search).trim() !== '') params.set('search', String(filters.search).trim())
   if (filters.sort != null && filters.sort !== '') params.set('sort', String(filters.sort))
   return requestJson(`/user/campaigns?${params}`, {}, { fallbackMessage: 'Falha ao carregar campanhas' })
@@ -157,6 +168,23 @@ export async function getCampaigns(limit = 50, offset = 0, filters = {}) {
 
 export async function getSummary() {
   return requestJson('/user/summary', {}, { fallbackMessage: 'Falha ao carregar resumo' })
+}
+
+export async function stopLocalSystem() {
+  try {
+    return await requestJson('/system/stop-local', {
+      method: 'POST',
+    }, {
+      fallbackMessage: 'Nao foi possivel encerrar o sistema local',
+    })
+  } catch (error) {
+    const message = String(error?.message || '')
+    const isLocalHost = typeof window !== 'undefined' && ['127.0.0.1', 'localhost'].includes(window.location.hostname)
+    if (isLocalHost && /failed to fetch|networkerror/i.test(message)) {
+      return { status: 'stopping', message: 'Encerramento local iniciado.' }
+    }
+    throw error
+  }
 }
 
 export async function createCampaign(data) {
@@ -196,8 +224,7 @@ export async function previewFromUrl(url, campaignTitle, platforms = ['instagram
     platforms,
     target_platform: opts.targetPlatform ?? null,
     objective: opts.objective ?? 'branding',
-    max_crawl_pages: opts.maxCrawlPages ?? 5,
-    max_crawl_depth: opts.maxCrawlDepth ?? 2,
+    ...buildCollectionOptions(opts),
     credentials_id: opts.credentialsId ?? null,
     login_url: opts.loginUrl ?? null,
     login_username: opts.loginUsername ?? null,
@@ -244,8 +271,7 @@ export async function exportCampaignZip(url, campaignTitle, platforms = ['instag
     platforms,
     target_platform: opts.targetPlatform ?? null,
     objective: opts.objective ?? 'branding',
-    max_crawl_pages: opts.maxCrawlPages ?? 5,
-    max_crawl_depth: opts.maxCrawlDepth ?? 2,
+    ...buildCollectionOptions(opts),
     credentials_id: opts.credentialsId ?? null,
     login_url: opts.loginUrl ?? null,
     login_username: opts.loginUsername ?? null,
@@ -267,8 +293,7 @@ export async function runAutonomousPipeline(url, campaignTitle, targetPlatform, 
     platforms: [targetPlatform],
     target_platform: targetPlatform,
     objective: opts.objective ?? 'branding',
-    max_crawl_pages: opts.maxCrawlPages ?? 5,
-    max_crawl_depth: opts.maxCrawlDepth ?? 2,
+    ...buildCollectionOptions(opts),
     credentials_id: opts.credentialsId ?? null,
     login_url: opts.loginUrl ?? null,
     login_username: opts.loginUsername ?? null,
@@ -289,8 +314,7 @@ export async function runMultiAgentPipeline(url, campaignTitle, targetPlatform, 
     platforms: [targetPlatform],
     target_platform: targetPlatform,
     objective: opts.objective ?? 'branding',
-    max_crawl_pages: opts.maxCrawlPages ?? 5,
-    max_crawl_depth: opts.maxCrawlDepth ?? 2,
+    ...buildCollectionOptions(opts),
     credentials_id: opts.credentialsId ?? null,
     login_url: opts.loginUrl ?? null,
     login_username: opts.loginUsername ?? null,
@@ -301,6 +325,77 @@ export async function runMultiAgentPipeline(url, campaignTitle, targetPlatform, 
     body: JSON.stringify(body),
   }, {
     fallbackMessage: 'Erro ao executar pipeline multi-agente',
+  })
+}
+
+function buildFinalContentBody(theme, objective, audience, opts = {}) {
+  return {
+    theme,
+    objective: objective || 'branding',
+    audience,
+    platforms: opts.platforms ?? ['instagram', 'tiktok', 'linkedin', 'x', 'youtube', 'facebook'],
+    style: opts.style ?? 'modern',
+  }
+}
+
+export async function getSavedFinalContentRuns(limit = 20, filters = {}) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (filters.offset != null) params.set('offset', String(filters.offset))
+  if (filters.search) params.set('search', String(filters.search))
+  if (Array.isArray(filters.platforms) && filters.platforms.length > 0) params.set('platforms', filters.platforms.join(','))
+  else if (filters.platform) params.set('platform', String(filters.platform))
+  if (filters.createdFrom) params.set('created_from', String(filters.createdFrom))
+  if (filters.createdTo) params.set('created_to', String(filters.createdTo))
+  return requestJson(`/campaign/final-content/saved?${params.toString()}`, {}, {
+    fallbackMessage: 'Erro ao carregar conteudos salvos',
+  })
+}
+
+export async function getSavedFinalContentRun(id) {
+  return requestJson(`/campaign/final-content/saved/${id}`, {}, {
+    fallbackMessage: 'Conteudo salvo nao encontrado',
+  })
+}
+
+export async function deleteSavedFinalContentRun(id) {
+  return requestVoid(`/campaign/final-content/saved/${id}`, {
+    method: 'DELETE',
+  }, {
+    fallbackMessage: 'Erro ao remover conteudo salvo',
+  })
+}
+
+export async function runFinalContentPipeline(theme, objective, audience, opts = {}) {
+  return requestJson('/campaign/final-content', {
+    method: 'POST',
+    body: JSON.stringify(buildFinalContentBody(theme, objective, audience, opts)),
+  }, {
+    fallbackMessage: 'Erro ao executar pipeline final',
+  })
+}
+
+export async function exportFinalContentPipeline(theme, objective, audience, opts = {}) {
+  const blob = await requestBlob('/campaign/final-content/export', {
+    method: 'POST',
+    body: JSON.stringify(buildFinalContentBody(theme, objective, audience, opts)),
+  }, {
+    fallbackMessage: 'Erro ao exportar pipeline final',
+  })
+  downloadBlob(blob, 'marketingai-final-content.zip')
+}
+
+export async function publishFinalContentPipeline(theme, objective, audience, opts = {}) {
+  return requestJson('/campaign/final-content/publish', {
+    method: 'POST',
+    body: JSON.stringify(buildFinalContentBody(theme, objective, audience, opts)),
+  }, {
+    fallbackMessage: 'Erro ao publicar pipeline final',
+  })
+}
+
+export async function getSavedCampaignPreview(campaignId) {
+  return requestJson(`/campaign/${campaignId}/saved-posts/latest`, {}, {
+    fallbackMessage: 'Nenhum post salvo para esta campanha',
   })
 }
 
@@ -351,4 +446,13 @@ export async function exportSelectedCampaignAssetsZip(campaignId, paths = []) {
     fallbackMessage: 'Erro ao exportar ativos selecionados',
   })
   downloadBlob(blob, 'marketingai-assets-selecionados.zip')
+}
+
+export async function deleteSelectedCampaignAssets(campaignId, paths = []) {
+  return requestJson(`/campaign/${campaignId}/assets/delete-selected`, {
+    method: 'POST',
+    body: JSON.stringify({ paths }),
+  }, {
+    fallbackMessage: 'Erro ao excluir ativos selecionados',
+  })
 }

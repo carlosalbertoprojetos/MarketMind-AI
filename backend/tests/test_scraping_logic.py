@@ -1,4 +1,4 @@
-"""Testes de classificacao e priorizacao do crawler."""
+"""Testes de classificacao, priorizacao e selecao explicita de URLs."""
 import sys
 from pathlib import Path
 
@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ia_pipeline.scraping import LinkCandidate, build_screen_label, infer_screen_type, rank_internal_links
+from ia_pipeline.scraping import LinkCandidate, build_requested_url_list, build_screen_label, infer_screen_type, rank_internal_links
 
 
 def test_infer_screen_type_identifies_pricing_page():
@@ -40,6 +40,24 @@ def test_build_screen_label_prefers_heading():
         url="https://acme.com/funcionalidades",
     )
     assert label == "Automatize campanhas com IA"
+
+
+def test_build_requested_url_list_keeps_only_explicit_unique_urls():
+    urls = build_requested_url_list(
+        "https://acme.com",
+        [
+            "https://acme.com/precos",
+            "https://acme.com/precos#faq",
+            "https://acme.com/blog",
+            "",
+        ],
+        max_urls=5,
+    )
+    assert urls == [
+        "https://acme.com",
+        "https://acme.com/precos",
+        "https://acme.com/blog",
+    ]
 
 
 def test_rank_internal_links_prioritizes_strategic_pages():
